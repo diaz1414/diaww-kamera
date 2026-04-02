@@ -536,12 +536,23 @@ const App = {
   },
 
   toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(err => {
-        alert(`Error attempting to enable fullscreen mode: ${err.message}`);
-      });
+    const doc = document.documentElement;
+    // Cross-browser fullScreenElement check
+    const isFull = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+
+    if (!isFull) {
+      const enter = doc.requestFullscreen || doc.webkitRequestFullscreen || doc.mozRequestFullScreen || doc.msRequestFullscreen;
+      if (enter) {
+        enter.call(doc).catch(err => {
+          console.error("Fullscreen error:", err);
+          alert("Gagal masuk ke mode Fullscreen. Coba lagi!");
+        });
+      } else {
+        alert("Browser lo nggak dukung mode Layar Penuh.");
+      }
     } else {
-      if (document.exitFullscreen) document.exitFullscreen();
+      const exit = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+      if (exit) exit.call(document);
     }
   }
 };
