@@ -202,7 +202,7 @@ const BASE_MODES = [
   { id: 'grid-4',     name: 'Quad Cam',      cat: 'mirror', params: [2, 2] },
   { id: 'grid-9',     name: 'Film Strip',    cat: 'mirror', params: [3, 3] },
   { id: 'grid-16',    name: '16-Bits Pro',   cat: 'mirror', params: [4, 4] },
-  { id: 'grid-100',   name: 'INCEPTION',     cat: 'mirror', params: [10, 10] }
+  { id: 'grid-100',   name: 'INCEPTION',     cat: 'mirror', params: [6, 6] }
 ];
 
 BASE_MODES.forEach(m => {
