@@ -16,22 +16,26 @@ const Camera = {
   // 1. Initialize Stream
   init: async () => {
     try {
+      const isMobile = window.innerWidth < 768;
       const constraints = {
         video: { 
           facingMode: facingMode,
-          width: { ideal: 1024 },
-          height: { ideal: 768 }
+          width: isMobile ? { ideal: 768 } : { ideal: 1024 },
+          height: isMobile ? { ideal: 1024 } : { ideal: 768 }
         },
         audio: false
       };
+
+      // Set CSS variable for aspect ratio
+      document.documentElement.style.setProperty('--aspect', isMobile ? '3/4' : '4/3');
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       video.srcObject = stream;
       video.onloadedmetadata = () => {
         video.play();
-        // Force 4:3 Internal Canvas Resolution (Webcam Toy Style)
-        canvas.width = 1024;
-        canvas.height = 768;
+        // Dynamic Canvas Resolution
+        canvas.width = isMobile ? 768 : 1024;
+        canvas.height = isMobile ? 1024 : 768;
         isStreaming = true;
         Camera.render();
       };
@@ -45,10 +49,10 @@ const Camera = {
   render: () => {
     if (!isStreaming) return;
 
-    // a. Center-Crop the raw video to fit 4:3
+    // a. Smart Center-Crop for any aspect ratio
     const vW = video.videoWidth;
     const vH = video.videoHeight;
-    const targetAspect = 1024 / 768;
+    const targetAspect = canvas.width / canvas.height;
     let sx=0, sy=0, sW=vW, sH=vH;
 
     if (vW / vH > targetAspect) {

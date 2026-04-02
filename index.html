@@ -86,30 +86,31 @@
   <section id="camera-interface" class="flex-col min-h-screen">
 
     <!-- Header (Clean like Webcam Toy) -->
-    <header class="flex items-center justify-between px-8 py-5 shrink-0 bg-dark-900 border-b border-white/5">
-      <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-lg bg-gold-500 flex items-center justify-center">
-          <i data-lucide="camera" size="18" class="text-white"></i>
+    <header class="flex items-center justify-between px-6 py-3 md:px-8 md:py-5 shrink-0 bg-dark-900 border-b border-white/5">
+      <div class="flex items-center gap-2 md:gap-3">
+        <div class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-gold-500 flex items-center justify-center">
+          <i data-lucide="camera" size="16" class="text-white"></i>
         </div>
-        <span class="font-serif italic text-2xl text-white tracking-tight">Diaww Kamera <span class="text-gold-500 text-sm align-top">®</span></span>
+        <span class="font-serif italic text-xl md:text-2xl text-white tracking-tight leading-none">Diaww Kamera <span class="text-gold-500 text-xs align-top">®</span></span>
       </div>
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-3 md:gap-4">
         <button id="grid-toggle" title="Semua Filter"
-          class="text-xs font-black uppercase tracking-widest text-white/40 hover:text-gold-500 transition-colors">
+          class="text-[0.6rem] md:text-xs font-black uppercase tracking-widest text-white/40 hover:text-gold-500 transition-colors">
           Browse Filters
         </button>
         <button id="random-filter" title="Filter Acak"
-          class="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 hover:bg-gold-500/15 hover:text-gold-500 text-white/40">
-          <i data-lucide="shuffle" size="18"></i>
+          class="w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-all duration-300 hover:bg-gold-500/15 hover:text-gold-500 text-white/40">
+          <i data-lucide="shuffle" size="16" class="md:hidden"></i>
+          <i data-lucide="shuffle" size="18" class="hidden md:block"></i>
         </button>
       </div>
     </header>
 
     <!-- Viewfinder -->
-    <div class="flex-1 flex flex-col items-center justify-center md:p-6">
+    <div class="flex-1 flex flex-col items-center justify-start md:justify-center md:p-6 overflow-hidden">
       <div id="camera-viewport" 
-           class="relative w-full max-w-5xl md:rounded-3xl overflow-hidden border-y-4 md:border-4 border-white/10 bg-dark-900 shadow-2xl transition-all duration-500"
-           style="aspect-ratio: 4/3;">
+           class="relative w-full max-w-5xl md:rounded-3xl overflow-hidden border-b-4 md:border-4 border-white/10 bg-dark-900 shadow-2xl transition-all duration-500"
+           style="aspect-ratio: var(--aspect, 4/3);">
         
         <canvas id="camera-canvas" class="w-full h-full object-cover"></canvas>
 
@@ -119,37 +120,37 @@
         </div>
 
         <!-- WEBCAM TOY OVERLAY CONTROLS -->
-        <div class="absolute bottom-6 left-0 right-0 z-30 flex items-center justify-center gap-3 px-6 scale-90 md:scale-100">
+        <div class="absolute bottom-6 left-0 right-0 z-30 flex items-center justify-center gap-2 px-6 scale-80 md:scale-100">
           
           <!-- Control: Settings -->
           <button id="theme-toggle" title="Ganti Tema"
-            class="w-12 h-12 rounded-lg bg-gold-500 text-white flex items-center justify-center shadow-lg hover:bg-gold-600 transition-all active:scale-90">
-            <i data-lucide="settings" size="24" class="fill-white/20"></i>
+            class="w-11 h-11 md:w-12 md:h-12 rounded-lg bg-gold-500 text-white flex items-center justify-center shadow-lg hover:bg-gold-600 transition-all active:scale-90">
+            <i data-lucide="settings" size="22" class="fill-white/20"></i>
           </button>
 
           <!-- Control: Flip Camera -->
           <button id="flip-camera" title="Ganti Kamera"
-            class="w-12 h-12 rounded-lg bg-gold-500 text-white flex items-center justify-center shadow-lg hover:bg-gold-600 transition-all active:scale-90">
-            <i data-lucide="refresh-ccw" size="24" class="fill-white/20"></i>
+            class="w-11 h-11 md:w-12 md:h-12 rounded-lg bg-gold-500 text-white flex items-center justify-center shadow-lg hover:bg-gold-600 transition-all active:scale-90">
+            <i data-lucide="refresh-ccw" size="22" class="fill-white/20"></i>
           </button>
 
           <!-- Control: Filter Selector -->
-          <div class="flex items-center bg-gold-500 rounded-lg shadow-lg overflow-hidden h-12">
-            <button class="prev-filter w-12 h-full flex items-center justify-center text-white hover:bg-black/10 transition-colors border-r border-white/10">
-              <i data-lucide="chevron-left" size="24"></i>
+          <div class="flex items-center bg-gold-500 rounded-lg shadow-lg overflow-hidden h-11 md:h-12">
+            <button class="prev-filter w-10 md:w-12 h-full flex items-center justify-center text-white hover:bg-black/10 transition-colors border-r border-white/10">
+              <i data-lucide="chevron-left" size="22"></i>
             </button>
-            <div class="px-6 flex items-center justify-center min-w-[160px]">
-              <span id="active-filter-name" class="text-sm font-black uppercase tracking-widest text-white whitespace-nowrap">ORIGINAL</span>
+            <div class="px-4 md:px-6 flex items-center justify-center min-w-[120px] md:min-w-[160px]">
+              <span id="active-filter-name" class="text-[0.7rem] md:text-sm font-black uppercase tracking-widest text-white whitespace-nowrap">ORIGINAL</span>
             </div>
-            <button class="next-filter w-12 h-full flex items-center justify-center text-white hover:bg-black/10 transition-colors border-l border-white/10">
-              <i data-lucide="chevron-right" size="24"></i>
+            <button class="next-filter w-10 md:w-12 h-full flex items-center justify-center text-white hover:bg-black/10 transition-colors border-l border-white/10">
+              <i data-lucide="chevron-right" size="22"></i>
             </button>
           </div>
 
           <!-- Control: Capture -->
           <button id="capture-trigger" title="Ambil Foto"
-            class="w-16 h-12 rounded-lg bg-gold-500 text-white flex items-center justify-center shadow-lg hover:bg-gold-600 transition-all active:scale-95">
-            <i data-lucide="camera" size="28" class="fill-white/10"></i>
+            class="w-14 h-11 md:w-16 md:h-12 rounded-lg bg-gold-500 text-white flex items-center justify-center shadow-lg hover:bg-gold-600 transition-all active:scale-95">
+            <i data-lucide="camera" size="26" class="fill-white/10"></i>
           </button>
 
         </div>
