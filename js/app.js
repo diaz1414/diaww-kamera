@@ -23,9 +23,8 @@ const App = {
     lucide.createIcons();
     App.bindEvents();
     App.bindCategoryEvents();
-    App.loadCameras();
     App.applySettingsUI();
-    // Render grid in background so it's fast when opened
+    // loadCameras() now called after stream ready to ensure labels exist
     setTimeout(() => App.renderFilterGrid(), 100);
   },
 
@@ -78,7 +77,10 @@ const App = {
   bindEvents() {
     // Screen Navigation
     const $  = id => document.getElementById(id);
-    $('start-btn').onclick   = () => App.goTo('camera-interface', () => Camera.init());
+    $('start-btn').onclick   = () => {
+      App.goTo('camera-interface');
+      Camera.init(App.settings.deviceId).then(() => App.loadCameras());
+    };
     $('back-btn').onclick    = () => App.goTo('camera-interface');
 
     // Filter Navigation
@@ -126,7 +128,7 @@ const App = {
     const flipBtn = $('flip-camera');
     if (flipBtn) {
       flipBtn.onclick = () => {
-        Camera.flip();
+        Camera.flip().then(() => App.loadCameras());
         gsap.to(flipBtn, { rotate: '+=180', duration: 0.4 });
       };
     }
@@ -481,26 +483,38 @@ const App = {
         return;
       }
 
+      // Sync with currently active device
+      let activeLabel = "Kamera Default";
+
       videoDevices.forEach((device, index) => {
         const label = device.label || `Camera ${index + 1}`;
+        const isActive = (App.settings.deviceId === device.deviceId) || (index === 0 && !App.settings.deviceId);
+        
+        if (isActive) {
+          activeLabel = label;
+          App.settings.deviceId = device.deviceId; // Lock it in
+        }
+
         const item = document.createElement('div');
-        item.className = 'px-5 py-3.5 text-xs text-white/70 hover:bg-gold-500 hover:text-dark-950 transition-all cursor-pointer flex items-center justify-between group';
+        item.className = `px-5 py-3.5 text-xs ${isActive ? 'text-gold-500 bg-white/5' : 'text-white/70'} hover:bg-gold-500 hover:text-dark-950 transition-all cursor-pointer flex items-center justify-between group`;
         item.innerHTML = `
           <span class="truncate">${label}</span>
-          <i data-lucide="check" size="12" class="opacity-0 group-hover:opacity-100"></i>
+          <i data-lucide="check" style="width:12px;height:12px" class="${isActive ? 'opacity-100' : 'opacity-0'} group-hover:opacity-100 transition-opacity"></i>
         `;
         
         item.onclick = (e) => {
           e.stopPropagation();
           activeName.textContent = label;
+          App.updateSetting('deviceId', device.deviceId);
           this.closeCameraDropdown();
-          Camera.init(device.deviceId);
+          Camera.stop();
+          Camera.init(device.deviceId).then(() => this.loadCameras());
         };
 
         list.appendChild(item);
-        if (index === 0) activeName.textContent = label;
       });
       
+      activeName.textContent = activeLabel;
       lucide.createIcons();
     });
   },

@@ -31,24 +31,26 @@ const Camera = {
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       video.srcObject = stream;
-      video.onloadedmetadata = () => {
-        video.play();
-        const resW = 1024, resH = isSquare ? 1024 : 768;
-        canvas.width = resW;
-        canvas.height = resH;
-        bufferCanvas.width = resW;
-        bufferCanvas.height = resH;
-        
-        // Expose buffer as 'video' for filter compatibility
-        window.video = bufferCanvas;
-
-        document.getElementById('camera-viewport').style.aspectRatio = isSquare ? '1/1' : '4/3';
-        isStreaming = true;
-        Camera.render();
-      };
+      return new Promise((resolve) => {
+        video.onloadedmetadata = () => {
+          video.play();
+          const resW = 1024, resH = isSquare ? 1024 : 768;
+          canvas.width = resW; canvas.height = resH;
+          bufferCanvas.width = resW; bufferCanvas.height = resH;
+          window.video = bufferCanvas;
+          document.getElementById('camera-viewport').style.aspectRatio = isSquare ? '1/1' : '4/3';
+          isStreaming = true;
+          Camera.render();
+          
+          // Get the actual device ID being used (important for 'default' vs specific)
+          const actualId = stream.getVideoTracks()[0].getSettings().deviceId;
+          resolve(actualId);
+        };
+      });
     } catch (err) {
       console.error("Camera access error:", err);
       alert("Gagal akses kamera. Coba izinkan atau ganti sumber kamera.");
+      return null;
     }
   },
 
