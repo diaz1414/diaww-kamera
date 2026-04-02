@@ -11,6 +11,8 @@ let isStreaming = false;
 let animationFrameId = null;
 
 let facingMode = 'user';
+const bufferCanvas = document.createElement('canvas');
+const bufferCtx = bufferCanvas.getContext('2d', { willReadFrequently: true });
 
 const Camera = {
   // 1. Initialize Stream
@@ -31,13 +33,16 @@ const Camera = {
       video.srcObject = stream;
       video.onloadedmetadata = () => {
         video.play();
-        // Dynamic Resolution based on Square setting
-        canvas.width = 1024;
-        canvas.height = isSquare ? 1024 : 768;
+        const resW = 1024, resH = isSquare ? 1024 : 768;
+        canvas.width = resW;
+        canvas.height = resH;
+        bufferCanvas.width = resW;
+        bufferCanvas.height = resH;
         
-        // Update viewport aspect ratio if needed
-        document.getElementById('camera-viewport').style.aspectRatio = isSquare ? '1/1' : '4/3';
+        // Expose buffer as 'video' for filter compatibility
+        window.video = bufferCanvas;
 
+        document.getElementById('camera-viewport').style.aspectRatio = isSquare ? '1/1' : '4/3';
         isStreaming = true;
         Camera.render();
       };
@@ -51,42 +56,38 @@ const Camera = {
   render: () => {
     if (!isStreaming) return;
 
+    // 1. Smart Center-Crop from raw stream to buffer
+    const vW = video.videoWidth, vH = video.videoHeight;
+    if (vW && vH) {
+      const targetAspect = bufferCanvas.width / bufferCanvas.height;
+      let sx=0, sy=0, sW=vW, sH=vH;
+      if (vW / vH > targetAspect) {
+        sW = vH * targetAspect; sx = (vW - sW) / 2;
+      } else {
+        sH = vW / targetAspect; sy = (vH - sH) / 2;
+      }
+      bufferCtx.drawImage(video, sx, sy, sW, sH, 0, 0, bufferCanvas.width, bufferCanvas.height);
+    }
+
+    // 2. Prepare Display
     ctx.save();
+    ctx.clearRect(0,0, canvas.width, canvas.height);
     
-    // Mirroring Support
     if (App.settings.mirror) {
       ctx.translate(canvas.width, 0);
       ctx.scale(-1, 1);
     }
 
-    // a. Smart Center-Crop
-    const vW = video.videoWidth;
-    const vH = video.videoHeight;
-    const targetAspect = canvas.width / canvas.height;
-    let sx=0, sy=0, sW=vW, sH=vH;
-
-    if (vW / vH > targetAspect) {
-      sW = vH * targetAspect;
-      sx = (vW - sW) / 2;
-    } else {
-      sH = vW / targetAspect;
-      sy = (vH - sH) / 2;
-    }
-
-    ctx.drawImage(video, sx, sy, sW, sH, 0, 0, canvas.width, canvas.height);
-    ctx.restore();
+    // 3. Draw Buffer to Screen
+    ctx.drawImage(bufferCanvas, 0, 0);
     
-    // b. Get Raw Data for effects that need it
+    // 4. Apply Current Filter
     const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    
-    // c. Apply Current Filter
-    if (currentFilter && currentFilter.method) {
-      if (currentFilter.id === 'quad' || currentFilter.id === 'split') {
-        ctx.clearRect(0,0, canvas.width, canvas.height);
-      }
+    if (currentFilter && currentFilter.method && currentFilter.id !== 'original') {
       currentFilter.method(pixels, ctx, canvas.width, canvas.height);
     }
 
+    ctx.restore();
     animationFrameId = requestAnimationFrame(Camera.render);
   },
 
