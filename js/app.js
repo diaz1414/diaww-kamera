@@ -326,12 +326,14 @@ const App = {
     overlay.style.display = 'flex';
     overlay.classList.remove('hidden');
     num.textContent = count;
+    App.Sound.tick();
     gsap.fromTo(num, { scale: 0.4, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4 });
 
     const timer = setInterval(() => {
       count--;
       if (count > 0) {
         num.textContent = count;
+        App.Sound.tick();
         gsap.fromTo(num, { scale: 0.4, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4 });
       } else {
         clearInterval(timer);
@@ -343,6 +345,7 @@ const App = {
   },
 
   doCapture() {
+    App.Sound.shutter();
     if (App.settings.flash) {
       const flash = document.getElementById('shutter-flash');
       gsap.fromTo(flash, { opacity: 1 }, { opacity: 0, duration: 0.5 });
@@ -372,6 +375,54 @@ const App = {
     a.href = canvas.toDataURL('image/jpeg', 0.96);
     a.download = `DIAWW-${Date.now()}.jpg`;
     a.click();
+  },
+
+  // ─── AUDIO ENGINE ────────────────────────────────────────────────────────────
+  Sound: {
+    ctx: null,
+    init() {
+      if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    },
+    tick() {
+      try {
+        this.init();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.frequency.setValueAtTime(880, this.ctx.currentTime);
+        gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.1);
+      } catch (e) {}
+    },
+    shutter() {
+      try {
+        this.init();
+        // White noise burst for "click"
+        const bufferSize = this.ctx.sampleRate * 0.12;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.value = 800;
+
+        const gain = this.ctx.createGain();
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+        noise.start();
+      } catch (e) {}
+    }
   },
 
   // ─── SETTINGS LOGIC ──────────────────────────────────────────────────────────
