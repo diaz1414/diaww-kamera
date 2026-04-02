@@ -295,15 +295,9 @@ for (let s = -0.9; s <= 0.9; s += 0.05) {
 });
 
 FILTER_CONFIG.push({ id: 'underwater-pro', name: 'Coral Reef', cat: 'distort', method: (px, ctx, w, h) => Effects.underwater(px, ctx, w, h, 1.2) });
-FILTER_CONFIG.push({ id: 'ghost-pro', name: 'RGB GHOST', cat: 'motion', method: (px, ctx, w, h) => {
-    Effects.updateBuffer(ctx, w, h, 15);
-    ctx.save();
-    ctx.globalCompositeOperation = 'screen';
-    if (Effects.buffer[0]) { ctx.globalAlpha = 0.5; ctx.filter = 'hue-rotate(0deg)'; ctx.drawImage(Effects.buffer[0], 0,0); }
-    if (Effects.buffer[7]) { ctx.globalAlpha = 0.5; ctx.filter = 'hue-rotate(120deg)'; ctx.drawImage(Effects.buffer[7], 0,0); }
-    if (Effects.buffer[14]) { ctx.globalAlpha = 0.5; ctx.filter = 'hue-rotate(240deg)'; ctx.drawImage(Effects.buffer[14], 0,0); }
-    ctx.restore();
-}});
+FILTER_CONFIG.push({ id: 'ghost-pro', name: 'RGB GHOST', cat: 'motion', method: (px, ctx, w, h) => Effects.rainbowGhost(ctx, w, h, 15, 0.4) });
+FILTER_CONFIG.push({ id: 'hyper-ghost', name: 'HYPER GHOST', cat: 'motion', method: (px, ctx, w, h) => Effects.rainbowGhost(ctx, w, h, 30, 0.6) });
+FILTER_CONFIG.push({ id: 'acid-ghost', name: 'ACID TRIP', cat: 'motion', method: (px, ctx, w, h) => Effects.rainbowGhost(ctx, w, h, 10, 1.2) });
 
 // E. COMBO SUITE
 const TOP_FILTERS = [
