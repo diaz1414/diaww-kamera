@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diaww Kamera — Pro Edition</title>
+  <meta name="description" content="Kamera web profesional dengan 500+ filter unik. Buat momen spesialmu jadi luar biasa!">
+  
+  <!-- Tailwind CSS v4 Browser CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+  <!-- INLINE TAILWIND THEME — Required for custom colors to work with CDN -->
+  <style type="text/tailwindcss">
+    @theme {
+      --color-gold-400: #E5C158;
+      --color-gold-500: #D4AF37;
+      --color-gold-600: #B8962E;
+      --color-dark-950: #080808;
+      --color-dark-900: #111111;
+      --color-dark-800: #1a1a1a;
+      --color-dark-700: #252525;
+      --color-ivory-50:  #FDFCF8;
+      --color-ivory-100: #F4F1E8;
+      --color-ivory-200: #EAE5D5;
+      --font-serif: "Cormorant Garamond", Georgia, serif;
+      --font-sans:  "Outfit", system-ui, sans-serif;
+    }
+
+    /* Section visibility system */
+    section { display: none; }
+    section.active { display: flex; }
+
+    /* Scrollbar hide */
+    .no-scroll::-webkit-scrollbar { display: none; }
+    .no-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* Fade animation */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+
+    /* Shutter pulse */
+    @keyframes pulse-gold {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(212,175,55,0.5); }
+      50%       { box-shadow: 0 0 0 20px rgba(212,175,55,0); }
+    }
+    #capture-trigger { animation: pulse-gold 2.5s ease-in-out infinite; }
+  </style>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Dependencies -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+</head>
+
+<!-- DARK MODE: dark bg + light text | LIGHT MODE: ivory bg + dark text -->
+<body id="app-body" class="overflow-hidden font-sans bg-dark-950 text-ivory-100 transition-colors duration-500">
+
+  <!-- ============================================================ -->
+  <!-- SCREEN 1: HOME                                               -->
+  <!-- ============================================================ -->
+  <section id="home" class="active flex-col items-center justify-center min-h-screen text-center gap-12 p-8 fade-up">
+    <div>
+      <h1 class="font-serif italic leading-none tracking-tight text-gold-500"
+          style="font-size: clamp(4rem, 14vw, 9rem);">Diaww Kamera</h1>
+      <p class="mt-4 text-xs uppercase tracking-[0.5em] opacity-40">Penghormatan modern untuk estetika klasik</p>
+    </div>
+    <button id="start-btn"
+      class="bg-gold-500 text-dark-900 font-black uppercase tracking-widest py-5 px-14 rounded-full text-base shadow-2xl hover:bg-gold-400 hover:scale-105 active:scale-95 transition-all duration-300">
+      Ambil Fotomu Sekarang
+    </button>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- SCREEN 2: CAMERA                                             -->
+  <!-- ============================================================ -->
+  <section id="camera-interface" class="flex-col min-h-screen">
+
+    <!-- Header -->
+    <header class="flex items-center justify-between px-6 py-4 shrink-0">
+      <span class="font-serif italic text-2xl text-gold-500">Diaww Kamera</span>
+      <div class="flex items-center gap-2">
+        <!-- Shuffle -->
+        <button id="random-filter" title="Filter Acak"
+          class="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 hover:bg-gold-500/15 hover:text-gold-500">
+          <i data-lucide="shuffle" size="18"></i>
+        </button>
+        <!-- Grid -->
+        <button id="grid-toggle" title="Semua Filter"
+          class="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 hover:bg-gold-500/15 hover:text-gold-500">
+          <i data-lucide="layout-grid" size="18"></i>
+        </button>
+        <!-- Theme -->
+        <button id="theme-toggle" title="Ganti Tema"
+          class="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 hover:bg-gold-500/15 hover:text-gold-500">
+          <i id="theme-icon" data-lucide="sun" size="18"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Viewfinder -->
+    <div class="flex-1 flex flex-col items-center justify-center gap-6 px-4 pb-6">
+      <div class="relative w-full max-w-4xl rounded-3xl overflow-hidden border-2 border-gold-500/60 bg-dark-900 shadow-[0_30px_80px_-10px_rgba(0,0,0,0.7)]"
+           style="aspect-ratio:16/9;">
+        <canvas id="camera-canvas" class="w-full h-full object-cover"></canvas>
+        <!-- Countdown -->
+        <div id="countdown-overlay" class="hidden absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-20">
+          <span id="countdown-number" class="font-serif italic text-white" style="font-size:clamp(8rem,20vw,14rem);">3</span>
+        </div>
+      </div>
+
+      <!-- Filter Label -->
+      <div class="px-8 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
+        <span id="active-filter-name" class="text-xs font-black uppercase tracking-[0.3em] text-gold-500">ORIGINAL</span>
+      </div>
+
+      <!-- Controls -->
+      <div class="flex items-center gap-10">
+        <button class="prev-filter w-14 h-14 rounded-full flex items-center justify-center border border-white/15 bg-white/5 hover:bg-gold-500 hover:text-dark-900 hover:border-gold-500 hover:scale-110 transition-all duration-200">
+          <i data-lucide="chevron-left" size="24"></i>
+        </button>
+
+        <button id="capture-trigger"
+          class="relative w-20 h-20 rounded-full bg-gold-500 flex items-center justify-center text-dark-900 hover:scale-110 active:scale-95 transition-transform duration-200 shadow-[0_0_40px_rgba(212,175,55,0.35)]">
+          <div class="absolute inset-2 rounded-full border-4 border-white/30 pointer-events-none"></div>
+          <i data-lucide="camera" size="30"></i>
+        </button>
+
+        <button class="next-filter w-14 h-14 rounded-full flex items-center justify-center border border-white/15 bg-white/5 hover:bg-gold-500 hover:text-dark-900 hover:border-gold-500 hover:scale-110 transition-all duration-200">
+          <i data-lucide="chevron-right" size="24"></i>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- SCREEN 3: RESULT                                             -->
+  <!-- ============================================================ -->
+  <section id="result-screen" class="flex-col items-center justify-center min-h-screen p-6 gap-8">
+    <div class="w-full max-w-2xl flex flex-col items-center gap-8 fade-up">
+      <h2 class="font-serif italic text-gold-500" style="font-size: clamp(2rem, 6vw, 3.5rem);">Hasil Tangkapanmu ✨</h2>
+      <canvas id="result-canvas" class="w-full rounded-3xl shadow-2xl border-2 border-gold-500/25"></canvas>
+      <div class="flex flex-wrap items-center justify-center gap-4">
+        <button id="back-btn"
+          class="py-3 px-8 rounded-full border-2 border-gold-500 text-gold-500 font-bold hover:bg-gold-500 hover:text-dark-900 transition-all duration-200">
+          ← Ulangi
+        </button>
+        <button id="save-btn"
+          class="py-3 px-10 rounded-full bg-gold-500 text-dark-900 font-black uppercase tracking-widest hover:bg-gold-400 hover:scale-105 active:scale-95 transition-all duration-200 shadow-xl">
+          ↓ Simpan Gambar
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- OVERLAY: FILTER EXPLORER                                     -->
+  <!-- ============================================================ -->
+  <div id="filter-grid-overlay"
+    class="fixed inset-0 z-50 hidden flex-col overflow-hidden transition-colors duration-500"
+    style="background: var(--grid-bg, rgba(8,8,8,0.97)); backdrop-filter: blur(24px);">
+
+    <!-- Sticky header -->
+    <div id="grid-header" class="shrink-0 px-6 pt-6 pb-4 flex flex-col gap-5 border-b transition-colors duration-500"
+         style="border-color: var(--grid-border, rgba(255,255,255,0.07)); background: var(--grid-header-bg, rgba(8,8,8,0.9)); backdrop-filter: blur(20px);">
+
+      <!-- Title row -->
+      <div class="flex items-start justify-between">
+        <div>
+          <h3 class="font-serif italic text-gold-500" style="font-size: clamp(1.8rem, 5vw, 3rem);">Eksplorasi Efek</h3>
+          <p id="filter-count-label" class="text-[0.6rem] uppercase tracking-[0.4em] font-bold mt-0.5" style="color: var(--grid-sub, rgba(255,255,255,0.3));">500+ KOLEKSI PROFESIONAL</p>
+        </div>
+        <button id="close-grid"
+          class="w-10 h-10 flex items-center justify-center rounded-full text-gold-500 hover:rotate-90 transition-all duration-300 hover:bg-gold-500/10">
+          <i data-lucide="x" size="28"></i>
+        </button>
+      </div>
+
+      <!-- Search -->
+      <div class="relative">
+        <i data-lucide="search" class="absolute left-5 top-1/2 -translate-y-1/2 text-gold-500/40 pointer-events-none" size="20"></i>
+        <input type="text" id="filter-search"
+          class="w-full py-3.5 pl-14 pr-5 rounded-full text-sm font-medium focus:outline-none transition-all duration-300"
+          style="background: var(--grid-input-bg, rgba(255,255,255,0.06)); border: 2px solid transparent; color: var(--grid-text, #F4F1E8);"
+          placeholder="Cari filter (misal: Noir, Wave, Cyber)…"
+          onfocus="this.style.borderColor='#D4AF37'; this.style.background='var(--grid-input-focus, rgba(255,255,255,0.1))'"
+          onblur="this.style.borderColor='transparent'; this.style.background='var(--grid-input-bg, rgba(255,255,255,0.06))'">
+      </div>
+
+      <!-- Category tabs -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <button class="cat-tab px-4 py-1.5 rounded-full text-[0.65rem] font-black uppercase tracking-widest transition-all duration-200 bg-gold-500 text-dark-900 shadow-lg" data-cat="all">SEMUA</button>
+        <button class="cat-tab px-4 py-1.5 rounded-full text-[0.65rem] font-black uppercase tracking-widest transition-all duration-200 hover:bg-gold-500/15 hover:text-gold-500" style="border:1px solid var(--grid-border-tab, rgba(255,255,255,0.12)); color: var(--grid-tab-text, rgba(255,255,255,0.55));" data-cat="mirror">MIRROR</button>
+        <button class="cat-tab px-4 py-1.5 rounded-full text-[0.65rem] font-black uppercase tracking-widest transition-all duration-200 hover:bg-gold-500/15 hover:text-gold-500" style="border:1px solid var(--grid-border-tab, rgba(255,255,255,0.12)); color: var(--grid-tab-text, rgba(255,255,255,0.55));" data-cat="color">WARNA</button>
+        <button class="cat-tab px-4 py-1.5 rounded-full text-[0.65rem] font-black uppercase tracking-widest transition-all duration-200 hover:bg-gold-500/15 hover:text-gold-500" style="border:1px solid var(--grid-border-tab, rgba(255,255,255,0.12)); color: var(--grid-tab-text, rgba(255,255,255,0.55));" data-cat="distort">WARP</button>
+        <button class="cat-tab px-4 py-1.5 rounded-full text-[0.65rem] font-black uppercase tracking-widest transition-all duration-200 hover:bg-gold-500/15 hover:text-gold-500" style="border:1px solid var(--grid-border-tab, rgba(255,255,255,0.12)); color: var(--grid-tab-text, rgba(255,255,255,0.55));" data-cat="motion">MOTION</button>
+        <button class="cat-tab px-4 py-1.5 rounded-full text-[0.65rem] font-black uppercase tracking-widest transition-all duration-200 hover:bg-gold-500/15 hover:text-gold-500" style="border:1px solid var(--grid-border-tab, rgba(255,255,255,0.12)); color: var(--grid-tab-text, rgba(255,255,255,0.55));" data-cat="combo">COMBO</button>
+        <button class="cat-tab px-4 py-1.5 rounded-full text-[0.65rem] font-black uppercase tracking-widest transition-all duration-200 hover:bg-gold-500/15 hover:text-gold-500" style="border:1px solid var(--grid-border-tab, rgba(255,255,255,0.12)); color: var(--grid-tab-text, rgba(255,255,255,0.55));" data-cat="fav">⭐ FAV</button>
+      </div>
+    </div>
+
+    <!-- Scrollable grid -->
+    <div id="grid-items-container"
+      class="flex-1 overflow-y-auto no-scroll grid p-5 gap-4 pb-10 content-start"
+      style="grid-template-columns: repeat(auto-fill, minmax(min(160px, 45vw), 1fr));">
+      <!-- Injected dynamically -->
+    </div>
+  </div>
+
+  <!-- Shutter flash overlay -->
+  <div id="shutter-flash" class="fixed inset-0 pointer-events-none z-[9999] opacity-0 bg-white"></div>
+
+  <!-- Scripts -->
+  <script src="js/effects.js"></script>
+  <script src="js/camera.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

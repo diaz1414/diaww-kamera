@@ -1,0 +1,5 @@
+/* Diaww Kamera — Pro Edition (Minimal CSS companion for Tailwind v4) */
+/* Only styles that cannot be done purely with Tailwind utilities */
+
+/* Placeholder input color (Webkit) */
+input::placeholder { color: var(--grid-placeholder, rgba(255,255,255,0.3)); }
