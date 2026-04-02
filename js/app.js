@@ -116,13 +116,7 @@ const App = {
       Camera.init(App.settings.deviceId);
     };
 
-    $('camera-select').onchange = e => {
-      App.updateSetting('deviceId', e.target.value);
-      Camera.stop();
-      Camera.init(e.target.value);
-    };
-
-    $('toggle-fullscreen').onclick = App.toggleFullscreen;
+    $('toggle-fullscreen').onclick = () => App.toggleFullscreen();
 
     // Flip Camera (Header alternative)
     const flipBtn = $('flip-camera');
