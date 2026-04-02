@@ -63,7 +63,7 @@
 </head>
 
 <!-- DARK MODE: dark bg + light text | LIGHT MODE: ivory bg + dark text -->
-<body id="app-body" class="overflow-hidden font-sans bg-dark-950 text-ivory-100 transition-colors duration-500">
+<body id="app-body" class="font-sans bg-dark-950 text-ivory-100 transition-colors duration-500">
 
   <!-- ============================================================ -->
   <!-- SCREEN 1: HOME                                               -->
@@ -107,10 +107,10 @@
     </header>
 
     <!-- Viewfinder -->
-    <div class="flex-1 flex flex-col items-center justify-start md:justify-center md:p-6 overflow-hidden">
+    <div class="flex-1 flex flex-col items-center justify-start md:justify-center p-4 md:p-6">
       <div id="camera-viewport" 
-           class="relative w-full max-w-5xl md:rounded-3xl overflow-hidden border-b-4 md:border-4 border-white/10 bg-dark-900 shadow-2xl transition-all duration-500"
-           style="aspect-ratio: var(--aspect, 4/3);">
+           class="relative w-full max-w-5xl rounded-2xl md:rounded-3xl overflow-hidden border-4 border-white/10 bg-dark-900 shadow-2xl transition-all duration-500"
+           style="aspect-ratio: 4/3;">
         
         <canvas id="camera-canvas" class="w-full h-full object-cover"></canvas>
 
