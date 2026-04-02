@@ -62,13 +62,6 @@ const App = {
       }
     }
 
-    // Update icon
-    const icon = document.getElementById('theme-icon');
-    if (icon) {
-      icon.setAttribute('data-lucide', dark ? 'sun' : 'moon');
-      lucide.createIcons();
-    }
-
     localStorage.setItem('diaww_theme', dark ? 'dark' : 'light');
   },
 

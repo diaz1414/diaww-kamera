@@ -19,8 +19,8 @@ const Camera = {
       const constraints = {
         video: { 
           facingMode: facingMode,
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
+          width: { ideal: 1024 },
+          height: { ideal: 768 }
         },
         audio: false
       };
@@ -29,9 +29,9 @@ const Camera = {
       video.srcObject = stream;
       video.onloadedmetadata = () => {
         video.play();
-        // Force 16:9 Internal Canvas Resolution
-        canvas.width = 1280;
-        canvas.height = 720;
+        // Force 4:3 Internal Canvas Resolution (Webcam Toy Style)
+        canvas.width = 1024;
+        canvas.height = 768;
         isStreaming = true;
         Camera.render();
       };
@@ -45,10 +45,10 @@ const Camera = {
   render: () => {
     if (!isStreaming) return;
 
-    // a. Center-Crop the raw video to fit 16:9
+    // a. Center-Crop the raw video to fit 4:3
     const vW = video.videoWidth;
     const vH = video.videoHeight;
-    const targetAspect = 1280 / 720;
+    const targetAspect = 1024 / 768;
     let sx=0, sy=0, sW=vW, sH=vH;
 
     if (vW / vH > targetAspect) {
