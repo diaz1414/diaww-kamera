@@ -6,6 +6,12 @@
 const Effects = {
   buffer: [],
   maxBufferSize: 60,
+  
+  // PERSISTENT POOLS (Memory Stability)
+  canvasPool: [],
+  offscreen: document.createElement('canvas'),
+  offCtx: null,
+  pData: null,
 
   // --- 1. CORE ENGINE ---
   
@@ -69,6 +75,26 @@ const Effects = {
     }
   },
 
+  // NEW: Rainbow Ghost Engine (Chromatic Trails)
+  rainbowGhost: (ctx, w, h, frames = 10, alpha = 0.4) => {
+    Effects.updateBuffer(ctx, w, h, frames);
+    ctx.save();
+    // DRAW BASE LAYER (Fixed black screen bug)
+    ctx.drawImage(video, 0, 0, w, h);
+    
+    ctx.globalCompositeOperation = 'screen';
+    // Draw buffered frames with skipping (Optimized for speed)
+    for (let i = 0; i < Effects.buffer.length; i += 2) {
+        const frame = Effects.buffer[i];
+        if (frame) {
+            ctx.globalAlpha = alpha / (i / 2 + 1);
+            ctx.filter = `hue-rotate(${i * 24}deg) saturate(1.8)`;
+            ctx.drawImage(frame, 0, 0, w, h);
+        }
+    }
+    ctx.restore();
+  },
+
   kaleidoscope: (ctx, w, h, slices = 4) => {
     const halfW = w / 2, halfH = h / 2;
     ctx.save();
@@ -81,11 +107,19 @@ const Effects = {
   },
 
   underwater: (px, ctx, w, h, strength = 1) => {
-    const time = Date.now() / 800;
-    Effects.map(px, ctx, w, h, (x, y) => {
-      const sx = x + Math.sin(y / 20 + time) * (15 * strength);
-      const sy = y + Math.cos(x / 20 + time) * (10 * strength);
-      return { sx, sy };
+    Effects.processLowRes(ctx, w, h, (px, oCtx, sw, sh) => {
+      const time = Date.now() / 800;
+      const d = px.data, out = oCtx.createImageData(sw, sh), od = out.data;
+      for (let y = 0; y < sh; y++) {
+          const yw = y * sw, syB = Math.sin(y / 15 + time) * (10 * strength);
+          for (let x = 0; x < sw; x++) {
+              const sx = (x + Math.cos(x / 15 + time) * (8 * strength) + 0.5) | 0;
+              const sy = (y + syB + 0.5) | 0;
+              const i = (yw + x) << 2, si = (sy * sw + sx) << 2;
+              od[i] = d[si]; od[i+1] = d[si+1]; od[i+2] = d[si+2]; od[i+3] = 255;
+          }
+      }
+      oCtx.putImageData(out, 0, 0);
     });
   },
 
@@ -96,26 +130,66 @@ const Effects = {
   },
 
   updateBuffer: (ctx, w, h, size) => {
-    const t = document.createElement('canvas');
-    t.width = w; t.height = h;
+    // RECYCLING SYSTEM (No memory leaks)
+    if (Effects.canvasPool.length === 0) {
+        for(let i=0; i<60; i++) {
+            const c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            Effects.canvasPool.push(c);
+        }
+    }
+    const t = Effects.canvasPool.shift();
+    // AUTO-RESIZE FIX (Prevents 'small box' bug when switching from low-res)
+    if (t.width !== w || t.height !== h) { t.width = w; t.height = h; }
+    
     t.getContext('2d').drawImage(video, 0, 0, w, h);
     Effects.buffer.push(t);
-    if (Effects.buffer.length > size) Effects.buffer.shift();
+    if (Effects.buffer.length > size) {
+        const old = Effects.buffer.shift();
+        Effects.canvasPool.push(old);
+    }
+  },
+
+  // INTERNAL 50% DOWNSAMPLING (4x FASTER)
+  processLowRes: (ctx, w, h, filterFn) => {
+    const sw = w >> 1, sh = h >> 1; // 50% size
+    if (!Effects.offCtx) {
+        Effects.offscreen.width = sw; Effects.offscreen.height = sh;
+        Effects.offCtx = Effects.offscreen.getContext('2d', { alpha: false });
+    }
+    // Step 1: Capture Low-Res
+    Effects.offCtx.drawImage(video, 0, 0, sw, sh);
+    const px = Effects.offCtx.getImageData(0, 0, sw, sh);
+    
+    // Step 2: Custom Loop (Already optimized in filterFn)
+    filterFn(px, Effects.offCtx, sw, sh);
+    
+    // Step 3: Fast GPU Upscale
+    ctx.drawImage(Effects.offscreen, 0, 0, w, h);
   },
 
   // NEW: Pinch / Punch
   pinch: (px, ctx, w, h, strength = 0.5) => {
-    const cx = w / 2, cy = h / 2;
-    const radius = Math.min(w, h) / 2;
-    Effects.map(px, ctx, w, h, (x, y) => {
-      let dx = x - cx, dy = y - cy;
-      const d = Math.sqrt(dx*dx + dy*dy);
-      if (d < radius) {
-        const factor = Math.pow(d / radius, strength);
-        return { sx: cx + dx * factor, sy: cy + dy * factor };
-      }
-      return { sx: x, sy: y };
-    });
+    const cx = w / 2, cy = h / 2, radius = Math.min(w, h) / 2;
+    const d = px.data, out = ctx.createImageData(w, h), od = out.data;
+    for (let y = 0; y < h; y++) {
+        const yw = y * w, dy = y - cy, dy2 = dy * dy;
+        for (let x = 0; x < w; x++) {
+            const dx = x - cx;
+            const dist = Math.sqrt(dx * dx + dy2);
+            const i = (yw + x) << 2;
+            if (dist < radius) {
+                const factor = Math.pow(dist / radius, strength);
+                const sx = (cx + dx * factor + 0.5) | 0, sy = (cy + dy * factor + 0.5) | 0;
+                const si = (sy * w + sx) << 2;
+                od[i] = d[si]; od[i+1] = d[si+1]; od[i+2] = d[si+2]; od[i+3] = d[si+3];
+            } else {
+                const si = (yw + x) << 2;
+                od[i] = d[si]; od[i+1] = d[si+1]; od[i+2] = d[si+2]; od[i+3] = d[si+3];
+            }
+        }
+    }
+    ctx.putImageData(out, 0, 0);
   },
 
   // NEW: Fisheye
@@ -189,26 +263,40 @@ const Effects = {
 
   // NEW: Liquid Wave Engine
   liquid: (px, ctx, w, h, strength = 10, freq = 0.05) => {
-    const time = Date.now() / 1000;
-    Effects.map(px, ctx, w, h, (x, y) => {
-      const sx = x + Math.sin(y * freq + time) * strength;
-      const sy = y + Math.cos(x * freq + time) * strength;
-      return { sx, sy };
+    Effects.processLowRes(ctx, w, h, (px, oCtx, sw, sh) => {
+      const time = Date.now() / 1000, d = px.data, out = oCtx.createImageData(sw, sh), od = out.data;
+      for (let y = 0; y < sh; y++) {
+          const yw = y * sw, syO = Math.sin(y * freq + time) * (strength / 2);
+          for (let x = 0; x < sw; x++) {
+              const sx = (x + syO + 0.5) | 0, sy = (y + Math.cos(x * freq + time) * (strength / 2) + 0.5) | 0;
+              const i = (yw + x) << 2, si = (sy * sw + sx) << 2;
+              od[i] = d[si]; od[i+1] = d[si+1]; od[i+2] = d[si+2]; od[i+3] = 255;
+          }
+      }
+      oCtx.putImageData(out, 0, 0);
     });
   },
 
   // NEW: Spherical Bubble Refraction
   bubble: (px, ctx, w, h, size = 0.4, intensity = 0.15) => {
-    const cx = w/2, cy = h/2;
-    const radius = Math.min(w, h) * size;
-    Effects.map(px, ctx, w, h, (x, y) => {
-      const dx = x - cx, dy = y - cy;
-      const d = Math.sqrt(dx*dx + dy*dy);
-      if (d < radius) {
-        const f = 1 + (Math.sin((d/radius) * Math.PI/2) * intensity);
-        return { sx: cx + dx * f, sy: cy + dy * f };
+    Effects.processLowRes(ctx, w, h, (px, oCtx, sw, sh) => {
+      const cx = sw/2, cy = sh/2, radius = Math.min(sw, sh) * size;
+      const rInv = 1/radius, hPI = Math.PI / 2, d = px.data, out = oCtx.createImageData(sw, sh), od = out.data;
+      for (let y = 0; y < sh; y++) {
+          const yw = y * sw, dy = y - cy, dy2 = dy * dy;
+          for (let x = 0; x < sw; x++) {
+              const dx = x - cx, dist = Math.sqrt(dx * dx + dy2), i = (yw + x) << 2;
+              if (dist < radius) {
+                  const f = 1 + (Math.sin(dist * rInv * hPI) * intensity);
+                  const sx = (cx + dx * f + 0.5) | 0, sy = (cy + dy * f + 0.5) | 0;
+                  const si = (sy * sw + sx) << 2;
+                  od[i] = d[si]; od[i+1] = d[si+1]; od[i+2] = d[si+2]; od[i+3] = 255;
+              } else {
+                  od[i] = d[i]; od[i+1] = d[i+1]; od[i+2] = d[i+2]; od[i+3] = 255;
+              }
+          }
       }
-      return { sx: x, sy: y };
+      oCtx.putImageData(out, 0, 0);
     });
   }
 };
@@ -295,9 +383,9 @@ for (let s = -0.9; s <= 0.9; s += 0.05) {
 });
 
 FILTER_CONFIG.push({ id: 'underwater-pro', name: 'Coral Reef', cat: 'distort', method: (px, ctx, w, h) => Effects.underwater(px, ctx, w, h, 1.2) });
-FILTER_CONFIG.push({ id: 'ghost-pro', name: 'RGB GHOST', cat: 'motion', method: (px, ctx, w, h) => Effects.rainbowGhost(ctx, w, h, 15, 0.4) });
-FILTER_CONFIG.push({ id: 'hyper-ghost', name: 'HYPER GHOST', cat: 'motion', method: (px, ctx, w, h) => Effects.rainbowGhost(ctx, w, h, 30, 0.6) });
-FILTER_CONFIG.push({ id: 'acid-ghost', name: 'ACID TRIP', cat: 'motion', method: (px, ctx, w, h) => Effects.rainbowGhost(ctx, w, h, 10, 1.2) });
+FILTER_CONFIG.push({ id: 'ghost-pro', name: 'RGB GHOST', cat: 'motion', method: (px, ctx, w, h) => Effects.rainbowGhost(ctx, w, h, 12, 0.3) });
+FILTER_CONFIG.push({ id: 'hyper-ghost', name: 'HYPER GHOST', cat: 'motion', method: (px, ctx, w, h) => Effects.rainbowGhost(ctx, w, h, 20, 0.5) });
+FILTER_CONFIG.push({ id: 'acid-ghost', name: 'ACID TRIP', cat: 'motion', method: (px, ctx, w, h) => Effects.rainbowGhost(ctx, w, h, 10, 1.1) });
 
 // E. COMBO SUITE
 const TOP_FILTERS = [
