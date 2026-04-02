@@ -14,13 +14,15 @@ let facingMode = 'user';
 
 const Camera = {
   // 1. Initialize Stream
-  init: async () => {
+  init: async (deviceId = null) => {
     try {
+      const isSquare = App.settings.square;
       const constraints = {
         video: { 
           facingMode: facingMode,
-          width: { ideal: 1024 },
-          height: { ideal: 768 }
+          deviceId: deviceId ? { exact: deviceId } : undefined,
+          width: { ideal: isSquare ? 1024 : 1024 },
+          height: { ideal: isSquare ? 1024 : 768 }
         },
         audio: false
       };
@@ -29,15 +31,19 @@ const Camera = {
       video.srcObject = stream;
       video.onloadedmetadata = () => {
         video.play();
-        // Force 4:3 Internal Canvas Resolution (Universal Standard)
+        // Dynamic Resolution based on Square setting
         canvas.width = 1024;
-        canvas.height = 768;
+        canvas.height = isSquare ? 1024 : 768;
+        
+        // Update viewport aspect ratio if needed
+        document.getElementById('camera-viewport').style.aspectRatio = isSquare ? '1/1' : '4/3';
+
         isStreaming = true;
         Camera.render();
       };
     } catch (err) {
       console.error("Camera access error:", err);
-      alert("Uh oh! Gagal akses kamera.");
+      alert("Gagal akses kamera. Coba izinkan atau ganti sumber kamera.");
     }
   },
 
@@ -45,10 +51,18 @@ const Camera = {
   render: () => {
     if (!isStreaming) return;
 
-    // a. Standard 4:3 Center-Crop
+    ctx.save();
+    
+    // Mirroring Support
+    if (App.settings.mirror) {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+    }
+
+    // a. Smart Center-Crop
     const vW = video.videoWidth;
     const vH = video.videoHeight;
-    const targetAspect = 1024 / 768;
+    const targetAspect = canvas.width / canvas.height;
     let sx=0, sy=0, sW=vW, sH=vH;
 
     if (vW / vH > targetAspect) {
@@ -60,6 +74,7 @@ const Camera = {
     }
 
     ctx.drawImage(video, sx, sy, sW, sH, 0, 0, canvas.width, canvas.height);
+    ctx.restore();
     
     // b. Get Raw Data for effects that need it
     const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);

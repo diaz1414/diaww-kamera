@@ -9,6 +9,13 @@ const App = {
   currentCategory: 'all',
   searchQuery: '',
   favorites: JSON.parse(localStorage.getItem('diaww_favs') || '[]'),
+  settings: JSON.parse(localStorage.getItem('diaww_settings') || `{
+    "mirror": true,
+    "countdown": true,
+    "flash": true,
+    "square": false,
+    "deviceId": ""
+  }`),
 
   // ─── INIT ────────────────────────────────────────────────────────────────────
   init() {
@@ -16,6 +23,8 @@ const App = {
     lucide.createIcons();
     App.bindEvents();
     App.bindCategoryEvents();
+    App.loadCameras();
+    App.applySettingsUI();
     // Render grid in background so it's fast when opened
     setTimeout(() => App.renderFilterGrid(), 100);
   },
@@ -91,10 +100,29 @@ const App = {
     $('capture-trigger').onclick = () => App.startCountdown();
     $('save-btn').onclick = App.saveImage;
 
-    // Theme
-    $('theme-toggle').onclick = () => App.applyTheme(!App.isDark);
+    // Advanced Settings Toggle
+    $('theme-toggle').onclick = () => App.toggleSettings(true);
+    $('close-settings').onclick = () => App.toggleSettings(false);
 
-    // Flip Camera
+    // Settings Inputs
+    $('set-mirror').onchange = e => App.updateSetting('mirror', e.target.checked);
+    $('set-countdown').onchange = e => App.updateSetting('countdown', e.target.checked);
+    $('set-flash').onchange = e => App.updateSetting('flash', e.target.checked);
+    $('set-square').onchange = e => {
+      App.updateSetting('square', e.target.checked);
+      Camera.stop();
+      Camera.init(App.settings.deviceId);
+    };
+
+    $('camera-select').onchange = e => {
+      App.updateSetting('deviceId', e.target.value);
+      Camera.stop();
+      Camera.init(e.target.value);
+    };
+
+    $('toggle-fullscreen').onclick = App.toggleFullscreen;
+
+    // Flip Camera (Header alternative)
     const flipBtn = $('flip-camera');
     if (flipBtn) {
       flipBtn.onclick = () => {
@@ -288,6 +316,10 @@ const App = {
 
   // ─── CAPTURE ─────────────────────────────────────────────────────────────────
   startCountdown() {
+    if (!App.settings.countdown) {
+      App.doCapture();
+      return;
+    }
     const overlay = document.getElementById('countdown-overlay');
     const num = document.getElementById('countdown-number');
     let count = 3;
@@ -311,8 +343,10 @@ const App = {
   },
 
   doCapture() {
-    const flash = document.getElementById('shutter-flash');
-    gsap.fromTo(flash, { opacity: 1 }, { opacity: 0, duration: 0.5 });
+    if (App.settings.flash) {
+      const flash = document.getElementById('shutter-flash');
+      gsap.fromTo(flash, { opacity: 1 }, { opacity: 0, duration: 0.5 });
+    }
 
     const dataUrl = Camera.capture();
     if (!dataUrl) return;
