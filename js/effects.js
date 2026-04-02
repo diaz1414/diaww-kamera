@@ -60,10 +60,11 @@ const Effects = {
   // --- 2. THE HYPER SUITE ---
 
   grid: (ctx, w, h, cols, rows) => {
-    const sw = w / cols, sh = h / rows;
+    const tw = w / cols, th = h / rows;
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
-        ctx.drawImage(video, c * sw, r * sh, sw, sh);
+        // Source whole 1024x768 buffer, draw into specific tile
+        ctx.drawImage(video, 0, 0, video.width, video.height, c * tw, r * th, tw, th);
       }
     }
   },
@@ -172,7 +173,6 @@ const Effects = {
     ctx.putImageData(out, 0, 0);
   },
 
-  // NEW: Twirl/Swirl
   twirl: (px, ctx, w, h, angle = 2) => {
     const cx = w / 2, cy = h / 2;
     const radius = Math.min(w, h) / 2;
@@ -182,6 +182,31 @@ const Effects = {
       if (d < radius) {
         const a = Math.atan2(dy, dx) + angle * (radius - d) / radius;
         return { sx: cx + d * Math.cos(a), sy: cy + d * Math.sin(a) };
+      }
+      return { sx: x, sy: y };
+    });
+  },
+
+  // NEW: Liquid Wave Engine
+  liquid: (px, ctx, w, h, strength = 10, freq = 0.05) => {
+    const time = Date.now() / 1000;
+    Effects.map(px, ctx, w, h, (x, y) => {
+      const sx = x + Math.sin(y * freq + time) * strength;
+      const sy = y + Math.cos(x * freq + time) * strength;
+      return { sx, sy };
+    });
+  },
+
+  // NEW: Spherical Bubble Refraction
+  bubble: (px, ctx, w, h, size = 0.4, intensity = 0.15) => {
+    const cx = w/2, cy = h/2;
+    const radius = Math.min(w, h) * size;
+    Effects.map(px, ctx, w, h, (x, y) => {
+      const dx = x - cx, dy = y - cy;
+      const d = Math.sqrt(dx*dx + dy*dy);
+      if (d < radius) {
+        const f = 1 + (Math.sin((d/radius) * Math.PI/2) * intensity);
+        return { sx: cx + dx * f, sy: cy + dy * f };
       }
       return { sx: x, sy: y };
     });
@@ -290,7 +315,8 @@ const TOP_FILTERS = [
   { n: "Fire", f: "hue-rotate(-20deg) saturate(2.5)" }
 ];
 
-BASE_MODES.forEach(grid => {
+// E. COMBO SUITE (Disabling combos for heavy grid modes for performance)
+BASE_MODES.filter(g => g.id !== 'grid-16' && g.id !== 'grid-100').forEach(grid => {
   TOP_FILTERS.forEach(filter => {
     FILTER_CONFIG.push({
       id: `combo-${grid.id}-${filter.n.toLowerCase()}`,
@@ -311,13 +337,37 @@ BASE_MODES.forEach(grid => {
   });
 });
 
-// F. MATRIX SPECIALS
-const MATRICES = [
-  { name: "NightVision", m: [0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0] },
-  { name: "Thermal", m: [1, 0, -1, 0, 0, -1, 1, 0, 0, 0, 0, -1, 1, 0, 0] },
-  { name: "Polaroid", m: [1.438, -0.062, -0.062, 0, 0, -0.122, 1.378, -0.122, 0, 0, -0.016, -0.016, 1.483, 0, 0] }
-];
+// G. LIQUID SUITE (50 NEW WAVES)
+for (let s = 1; s <= 50; s++) {
+  const strength = 5 + (s * 0.5);
+  const freq = 0.02 + (s * 0.002);
+  FILTER_CONFIG.push({ id: `wave-${s}`, name: `Wave ${s}`, cat: 'distort', method: (px, ctx, w, h) => Effects.liquid(px, ctx, w, h, strength, freq) });
+}
 
-MATRICES.forEach(mat => {
-  FILTER_CONFIG.push({ id: `mat-${mat.name.toLowerCase()}`, name: mat.name, cat: 'color', method: (px, ctx, w, h) => Effects.colorMatrix(px, ctx, w, h, mat.m) });
+// H. BUBBLE SUITE (50 NEW SPHERICAL)
+for (let s = 1; s <= 50; s++) {
+  const size = 0.2 + (s * 0.015);
+  const intensity = 0.05 + (s * 0.005);
+  FILTER_CONFIG.push({ id: `bubble-${s}`, name: `Bubble ${s}`, cat: 'distort', method: (px, ctx, w, h) => Effects.bubble(px, ctx, w, h, size, intensity) });
+}
+
+// I. SWEET COLLECTION (100 NEW CUTE FILTERS)
+const SWEET_NAMES = ["Sakura", "Peach", "Candy", "Mint", "Bloom", "Sugar", "Honey", "Kawaii", "Dreamy", "Pastel", "Lush", "Velvet", "Glow", "Sparkle", "Sweet", "Cookie", "Berry", "Fluff", "Cloud", "Sunny"];
+SWEET_NAMES.forEach((name, i) => {
+  for (let variant = 1; variant <= 5; variant++) {
+      const h = i * 18 + (variant * 5);
+      const sat = 1.2 + (variant * 0.1);
+      const b = 1 + (variant * 0.03);
+      FILTER_CONFIG.push({ 
+        id: `sweet-${i}-${variant}`, 
+        name: `${name} ${variant}`, 
+        cat: 'sweet', 
+        method: (px, ctx, w, hv) => { 
+          ctx.save(); 
+          ctx.filter = `hue-rotate(${h}deg) saturate(${sat}) brightness(${b}) contrast(1.1) sepia(0.1)`; 
+          ctx.drawImage(video,0,0,w,hv); 
+          ctx.restore(); 
+        }
+      });
+  }
 });
