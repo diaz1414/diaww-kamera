@@ -16,31 +16,28 @@ const Camera = {
   // 1. Initialize Stream
   init: async () => {
     try {
-      const isMobile = window.innerWidth < 768;
       const constraints = {
         video: { 
           facingMode: facingMode,
-          width: isMobile ? { ideal: 720 } : { ideal: 1280 },
-          height: isMobile ? { ideal: 1280 } : { ideal: 720 }
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
         },
         audio: false
       };
-
-      // Set CSS variable based on chosen layout
-      document.documentElement.style.setProperty('--camera-aspect', isMobile ? '9/16' : '16/9');
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       video.srcObject = stream;
       video.onloadedmetadata = () => {
         video.play();
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        // Force 16:9 Internal Canvas Resolution
+        canvas.width = 1280;
+        canvas.height = 720;
         isStreaming = true;
         Camera.render();
       };
     } catch (err) {
       console.error("Camera access error:", err);
-      alert("Uh oh! Gagal akses kamera. Pastikan izin sudah diberikan.");
+      alert("Uh oh! Gagal akses kamera.");
     }
   },
 
@@ -48,15 +45,27 @@ const Camera = {
   render: () => {
     if (!isStreaming) return;
 
-    // a. Draw raw video to canvas first (for pixel manipulation)
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    // a. Center-Crop the raw video to fit 16:9
+    const vW = video.videoWidth;
+    const vH = video.videoHeight;
+    const targetAspect = 1280 / 720;
+    let sx=0, sy=0, sW=vW, sH=vH;
+
+    if (vW / vH > targetAspect) {
+      sW = vH * targetAspect;
+      sx = (vW - sW) / 2;
+    } else {
+      sH = vW / targetAspect;
+      sy = (vH - sH) / 2;
+    }
+
+    ctx.drawImage(video, sx, sy, sW, sH, 0, 0, canvas.width, canvas.height);
     
     // b. Get Raw Data for effects that need it
     const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
     
     // c. Apply Current Filter
     if (currentFilter && currentFilter.method) {
-      // Clean canvas before effect if it's a composite one
       if (currentFilter.id === 'quad' || currentFilter.id === 'split') {
         ctx.clearRect(0,0, canvas.width, canvas.height);
       }
