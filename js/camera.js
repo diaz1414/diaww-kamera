@@ -10,14 +10,26 @@ let currentFilter = FILTER_CONFIG[0]; // Default: Original
 let isStreaming = false;
 let animationFrameId = null;
 
+let facingMode = 'user';
+
 const Camera = {
   // 1. Initialize Stream
   init: async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 1280, height: 720, facingMode: 'user' },
+      const isMobile = window.innerWidth < 768;
+      const constraints = {
+        video: { 
+          facingMode: facingMode,
+          width: isMobile ? { ideal: 720 } : { ideal: 1280 },
+          height: isMobile ? { ideal: 1280 } : { ideal: 720 }
+        },
         audio: false
-      });
+      };
+
+      // Set CSS variable based on chosen layout
+      document.documentElement.style.setProperty('--camera-aspect', isMobile ? '9/16' : '16/9');
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       video.srcObject = stream;
       video.onloadedmetadata = () => {
         video.play();
@@ -28,7 +40,7 @@ const Camera = {
       };
     } catch (err) {
       console.error("Camera access error:", err);
-      // Graceful error UI handling would go here
+      alert("Uh oh! Gagal akses kamera. Pastikan izin sudah diberikan.");
     }
   },
 
@@ -77,5 +89,12 @@ const Camera = {
   capture: () => {
     // Returns a base64 DataURL of the current canvas state
     return canvas.toDataURL('image/jpeg', 0.95);
+  },
+
+  // 6. Flip Camera
+  flip: () => {
+    facingMode = (facingMode === 'user') ? 'environment' : 'user';
+    Camera.stop();
+    Camera.init();
   }
 };

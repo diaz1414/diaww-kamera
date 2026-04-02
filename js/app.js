@@ -100,6 +100,15 @@ const App = {
 
     // Theme
     $('theme-toggle').onclick = () => App.applyTheme(!App.isDark);
+
+    // Flip Camera
+    const flipBtn = $('flip-camera');
+    if (flipBtn) {
+      flipBtn.onclick = () => {
+        Camera.flip();
+        gsap.to(flipBtn, { rotate: '+=180', duration: 0.4 });
+      };
+    }
   },
 
   bindCategoryEvents() {
