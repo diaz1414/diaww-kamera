@@ -372,6 +372,56 @@ const App = {
     a.href = canvas.toDataURL('image/jpeg', 0.96);
     a.download = `DIAWW-${Date.now()}.jpg`;
     a.click();
+  },
+
+  // ─── SETTINGS LOGIC ──────────────────────────────────────────────────────────
+  toggleSettings(show) {
+    const panel = document.getElementById('settings-panel');
+    if (show) {
+      panel.classList.remove('hidden');
+      lucide.createIcons();
+      gsap.fromTo(panel, { opacity: 0, x: -20 }, { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" });
+    } else {
+      gsap.to(panel, { opacity: 0, x: -20, duration: 0.3, onComplete: () => panel.classList.add('hidden') });
+    }
+  },
+
+  updateSetting(key, val) {
+    App.settings[key] = val;
+    localStorage.setItem('diaww_settings', JSON.stringify(App.settings));
+  },
+
+  applySettingsUI() {
+    const s = App.settings;
+    if (document.getElementById('set-mirror'))    document.getElementById('set-mirror').checked = s.mirror;
+    if (document.getElementById('set-countdown')) document.getElementById('set-countdown').checked = s.countdown;
+    if (document.getElementById('set-flash'))     document.getElementById('set-flash').checked = s.flash;
+    if (document.getElementById('set-square'))    document.getElementById('set-square').checked = s.square;
+  },
+
+  async loadCameras() {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(d => d.kind === 'videoinput');
+      const select = document.getElementById('camera-select');
+      if (!select) return;
+      
+      select.innerHTML = videoDevices.map(d => 
+        `<option value="${d.deviceId}" ${App.settings.deviceId === d.deviceId ? 'selected' : ''}>${d.label || 'Kamera ' + d.deviceId.slice(0,5)}</option>`
+      ).join('');
+    } catch (e) {
+      console.warn("Could not load cameras", e);
+    }
+  },
+
+  toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        alert(`Error attempting to enable fullscreen mode: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) document.exitFullscreen();
+    }
   }
 };
 
