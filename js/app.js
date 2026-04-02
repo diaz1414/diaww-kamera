@@ -451,18 +451,74 @@ const App = {
   },
 
   async loadCameras() {
-    try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
+    const list = document.getElementById('camera-options-list');
+    const trigger = document.getElementById('camera-select-trigger');
+    const activeName = document.getElementById('camera-active-name');
+    if (!list) return;
+
+    // Toggle Dropdown
+    trigger.onclick = (e) => {
+      e.stopPropagation();
+      const isOpen = !list.classList.contains('hidden');
+      if (isOpen) {
+        this.closeCameraDropdown();
+      } else {
+        this.openCameraDropdown();
+      }
+    };
+
+    // Global Click Outside
+    document.addEventListener('click', () => {
+      this.closeCameraDropdown();
+    });
+
+    navigator.mediaDevices.enumerateDevices().then(devices => {
       const videoDevices = devices.filter(d => d.kind === 'videoinput');
-      const select = document.getElementById('camera-select');
-      if (!select) return;
+      list.innerHTML = '';
+
+      if (videoDevices.length === 0) {
+        activeName.textContent = "No Camera Found";
+        return;
+      }
+
+      videoDevices.forEach((device, index) => {
+        const label = device.label || `Camera ${index + 1}`;
+        const item = document.createElement('div');
+        item.className = 'px-5 py-3.5 text-xs text-white/70 hover:bg-gold-500 hover:text-dark-950 transition-all cursor-pointer flex items-center justify-between group';
+        item.innerHTML = `
+          <span class="truncate">${label}</span>
+          <i data-lucide="check" size="12" class="opacity-0 group-hover:opacity-100"></i>
+        `;
+        
+        item.onclick = (e) => {
+          e.stopPropagation();
+          activeName.textContent = label;
+          this.closeCameraDropdown();
+          Camera.init(device.deviceId);
+        };
+
+        list.appendChild(item);
+        if (index === 0) activeName.textContent = label;
+      });
       
-      select.innerHTML = videoDevices.map(d => 
-        `<option value="${d.deviceId}" ${App.settings.deviceId === d.deviceId ? 'selected' : ''}>${d.label || 'Kamera ' + d.deviceId.slice(0,5)}</option>`
-      ).join('');
-    } catch (e) {
-      console.warn("Could not load cameras", e);
-    }
+      lucide.createIcons();
+    });
+  },
+
+  openCameraDropdown() {
+    const list = document.getElementById('camera-options-list');
+    const icon = document.querySelector('#camera-select-trigger i');
+    list.classList.remove('hidden');
+    gsap.fromTo(list, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' });
+    gsap.to(icon, { rotate: 180, duration: 0.3 });
+  },
+
+  closeCameraDropdown() {
+    const list = document.getElementById('camera-options-list');
+    const icon = document.querySelector('#camera-select-trigger i');
+    if (!list || list.classList.contains('hidden')) return;
+    gsap.to(list, { opacity: 0, y: -10, duration: 0.2, onComplete: () => list.classList.add('hidden') });
+    gsap.to(icon, { rotate: 0, duration: 0.3 });
   },
 
   toggleFullscreen() {
