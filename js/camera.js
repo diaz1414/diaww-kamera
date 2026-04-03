@@ -20,7 +20,7 @@ const Camera = {
     try {
       const isSquare = App.settings.square;
       const constraints = {
-        video: { 
+        video: {
           facingMode: facingMode,
           deviceId: deviceId ? { exact: deviceId } : undefined,
           width: { ideal: isSquare ? 1024 : 1024 },
@@ -41,7 +41,7 @@ const Camera = {
           document.getElementById('camera-viewport').style.aspectRatio = isSquare ? '1/1' : '4/3';
           isStreaming = true;
           Camera.render();
-          
+
           // Get the actual device ID being used (important for 'default' vs specific)
           const actualId = stream.getVideoTracks()[0].getSettings().deviceId;
           resolve(actualId);
@@ -62,7 +62,7 @@ const Camera = {
     const vW = streamVideo.videoWidth, vH = streamVideo.videoHeight;
     if (vW && vH) {
       const targetAspect = bufferCanvas.width / bufferCanvas.height;
-      let sx=0, sy=0, sW=vW, sH=vH;
+      let sx = 0, sy = 0, sW = vW, sH = vH;
       if (vW / vH > targetAspect) {
         sW = vH * targetAspect; sx = (vW - sW) / 2;
       } else {
@@ -73,8 +73,8 @@ const Camera = {
 
     // 2. Prepare Display
     ctx.save();
-    ctx.clearRect(0,0, canvas.width, canvas.height);
-    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
     if (App.settings.mirror) {
       ctx.translate(canvas.width, 0);
       ctx.scale(-1, 1);
@@ -86,12 +86,12 @@ const Camera = {
       // We only capture pixels if it's a pixel-level distortion.
       const isPixelDistortion = currentFilter.cat === 'distort' && !currentFilter.id.includes('pixel') && !currentFilter.id.includes('underwater');
       let pixels = null;
-      
+
       if (isPixelDistortion) {
-          ctx.drawImage(bufferCanvas, 0, 0);
-          pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(bufferCanvas, 0, 0);
+        pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
       }
-      
+
       currentFilter.method(pixels, ctx, canvas.width, canvas.height);
     } else {
       ctx.drawImage(bufferCanvas, 0, 0);
@@ -116,7 +116,7 @@ const Camera = {
     if (filter) {
       currentFilter = filter;
       // Clear buffer for motion effects when switching
-      Effects.buffer = []; 
+      Effects.buffer = [];
     }
   },
 
