@@ -12,6 +12,9 @@ const Effects = {
   offscreen: document.createElement('canvas'),
   offCtx: null,
   pData: null,
+  state: {}, // For persistent animation data (particles, etc.)
+  lastId: null, // Track filter changes to reset state
+
 
   // --- 1. CORE ENGINE ---
 
@@ -66,9 +69,8 @@ const Effects = {
   // --- 2. THE HYPER SUITE ---
 
   grid: (ctx, w, h, cols, rows, mirror = false, gap = 4) => {
-    // 1. CLEAR TO BLACK background for the borders (boxy look)
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, w, h);
+    // Fill background with video instead of black
+    ctx.drawImage(video, 0, 0, w, h);
 
     const tw = w / cols, th = h / rows;
     const drawW = tw - (gap > 0 ? gap : 0);
@@ -210,6 +212,9 @@ const Effects = {
   },
 
   kaleidoscope: (ctx, w, h, slices = 4) => {
+    // Fill background with video first so no black space
+    ctx.drawImage(video, 0, 0, w, h);
+    
     const halfW = w / 2, halfH = h / 2;
     ctx.save();
     ctx.translate(halfW, halfH);
@@ -423,6 +428,197 @@ const Effects = {
     });
   },
 
+  // --- 3. THEME SUITE (50+ NEW ADDITIONS) ---
+
+  // SNOW: Particle system
+  snow: (ctx, w, h, strength = 1) => {
+    // Initialize particles if not exists or filter changed
+    if (!Effects.state.snow || Effects.state.w !== w) {
+      Effects.state.snow = Array.from({ length: 150 }, () => ({
+        x: Math.random() * w, y: Math.random() * h,
+        s: Math.random() * 3 + 1, v: Math.random() * 2 + 1, o: Math.random() * 0.8 + 0.2
+      }));
+      Effects.state.w = w;
+    }
+    
+    // Draw Background Camera
+    ctx.drawImage(video, 0, 0, w, h);
+    
+    // Draw & Update Particles
+    ctx.fillStyle = '#fff';
+    Effects.state.snow.forEach(p => {
+      ctx.globalAlpha = p.o;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, Math.PI * 2); ctx.fill();
+      p.y += p.v * strength; p.x += Math.sin(p.y / 30) * 0.5;
+      if (p.y > h) { p.y = -10; p.x = Math.random() * w; }
+    });
+    ctx.globalAlpha = 1;
+  },
+
+  // FIRE: Animated embers & glow
+  fire: (ctx, w, h, intensity = 1) => {
+    if (!Effects.state.fire) {
+      Effects.state.fire = Array.from({ length: 50 }, () => ({
+        x: Math.random() * w, y: h + 20,
+        s: Math.random() * 4 + 2, v: Math.random() * 3 + 2, a: 1
+      }));
+    }
+
+    ctx.drawImage(video, 0, 0, w, h);
+    
+    // Heat Haze (Distortion at bottom)
+    const time = Date.now() / 200;
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    const grad = ctx.createLinearGradient(0, h * 0.7, 0, h);
+    grad.addColorStop(0, 'rgba(255,100,0,0)');
+    grad.addColorStop(1, `rgba(255,50,0,${0.3 * intensity})`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+    
+    // Embers
+    Effects.state.fire.forEach(p => {
+      ctx.globalAlpha = p.a;
+      ctx.fillStyle = `rgb(255, ${100 + Math.random() * 100}, 0)`;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, Math.PI * 2); ctx.fill();
+      p.y -= p.v; p.x += Math.sin(p.y / 20 + time); p.a -= 0.01;
+      if (p.y < h * 0.4 || p.a <= 0) { p.y = h + 10; p.x = Math.random() * w; p.a = 1; }
+    });
+    ctx.restore(); ctx.globalAlpha = 1;
+  },
+
+  // CUTE: Overlays (Ears, Blushing, etc.)
+  cuteOver: (ctx, w, h, type = 'bear', color = '#cc8e6c') => {
+    // 1. Soft Dreamy Aesthetic Filter
+    ctx.save();
+    ctx.filter = 'contrast(0.9) brightness(1.1) saturate(1.25) sepia(0.08)';
+    ctx.drawImage(video, 0, 0, w, h);
+    ctx.restore();
+
+    ctx.save();
+    const time = Date.now() / 400;
+
+    if (type.includes('bear') || type === 'panda') {
+      const earSize = w * 0.085;
+      const drawEar = (ex, ey) => {
+        ctx.fillStyle = type === 'panda' ? '#333' : color;
+        ctx.beginPath(); ctx.arc(ex, ey, earSize, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = type === 'panda' ? '#fff' : '#ffc0cb';
+        ctx.beginPath(); ctx.arc(ex, ey, earSize * 0.55, 0, Math.PI * 2); ctx.fill();
+      };
+      drawEar(w * 0.28, h * 0.15); drawEar(w * 0.72, h * 0.15);
+      // Blush
+      const drawBlush = (bx, by) => {
+        const bGrad = ctx.createRadialGradient(bx, by, 0, bx, by, w * 0.07);
+        bGrad.addColorStop(0, 'rgba(255,100,150,0.3)');
+        bGrad.addColorStop(1, 'rgba(255,100,150,0)');
+        ctx.fillStyle = bGrad;
+        ctx.beginPath(); ctx.ellipse(bx, by, w * 0.07, h * 0.04, 0, 0, Math.PI * 2); ctx.fill();
+      };
+      drawBlush(w * 0.3, h * 0.52); drawBlush(w * 0.7, h * 0.52);
+
+    } else if (type === 'cat') {
+      const drawCatEar = (ex) => {
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.moveTo(ex - w*0.06, h*0.2); ctx.lineTo(ex, h*0.08); ctx.lineTo(ex + w*0.06, h*0.2); ctx.fill();
+        ctx.fillStyle = '#ffb7c5'; ctx.beginPath(); ctx.moveTo(ex - w*0.03, h*0.18); ctx.lineTo(ex, h*0.12); ctx.lineTo(ex + w*0.03, h*0.18); ctx.fill();
+      };
+      drawCatEar(w * 0.3); drawCatEar(w * 0.7);
+      // Whiskers
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 2;
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath(); ctx.moveTo(w*0.35, h*0.5+i*8); ctx.lineTo(w*0.2, h*0.48+i*8); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(w*0.65, h*0.5+i*8); ctx.lineTo(w*0.8, h*0.48+i*8); ctx.stroke();
+      }
+    } else if (type === 'bunny') {
+      const bounce = Math.abs(Math.sin(time)) * 10;
+      const drawBunnyEar = (ex) => {
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.ellipse(ex, h*0.15 - bounce, w*0.04, h*0.12, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#ffb7c5';
+        ctx.beginPath(); ctx.ellipse(ex, h*0.15 - bounce, w*0.02, h*0.08, 0, 0, Math.PI*2); ctx.fill();
+      };
+      drawBunnyEar(w*0.4); drawBunnyEar(w*0.6);
+    } else if (type === 'angel') {
+        ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 8;
+        ctx.setLineDash([10, 5]); ctx.shadowBlur = 15; ctx.shadowColor = '#fff';
+        ctx.beginPath(); ctx.ellipse(w*0.5, h*0.12 + Math.sin(time)*5, w*0.18, h*0.04, 0, 0, Math.PI*2); ctx.stroke();
+    } else if (type === 'hearts') {
+        if (!Effects.state.hearts) Effects.state.hearts = Array.from({length:15}, () => ({x:Math.random()*w, y:Math.random()*h, s:Math.random()*15+10, v:Math.random()*2+1}));
+        Effects.state.hearts.forEach(p => {
+          Effects.drawHeart(ctx, p.x, p.y, p.s, 'rgba(255,100,150,0.6)');
+          p.y -= p.v; if (p.y < -20) { p.y = h+20; p.x = Math.random()*w; }
+        });
+    } else if (type === 'sparkles') {
+        for(let i=0; i<10; i++) {
+          const sx = Math.random()*w, sy = Math.random()*h, ss = Math.random()*8+4;
+          if (Math.random() > 0.8) Effects.drawStar(ctx, sx, sy, ss, '#fff');
+        }
+    } else if (type === 'strawberry') {
+        ctx.globalAlpha = 0.4;
+        for(let i=0; i<8; i++) {
+          Effects.drawHeart(ctx, Math.random()*w, Math.random()*h, 20, '#ff4d4d');
+        }
+    }
+    ctx.restore();
+  },
+
+  // URBAN: Hello City
+  urban: (ctx, w, h, tint = 'neon') => {
+    ctx.save();
+    if (tint === 'neon') ctx.filter = 'saturate(2) contrast(1.2) hue-rotate(-20deg) brightness(1.1)';
+    else ctx.filter = 'contrast(1.4) grayscale(0.5) brightness(0.9)';
+    ctx.drawImage(video, 0, 0, w, h);
+    
+    // Frame
+    ctx.strokeStyle = tint === 'neon' ? '#0ff' : '#fff';
+    ctx.lineWidth = 20; ctx.globalAlpha = 0.2;
+    ctx.strokeRect(10, 10, w - 20, h - 20);
+    ctx.restore();
+  },
+
+  // COOL: Glitch & 3D (Boy Version)
+  coolBoy: (ctx, w, h, type = '3d') => {
+    if (type === '3d') {
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.filter = 'brightness(1.2) contrast(1.1)';
+      // Red shift
+      ctx.globalAlpha = 0.8; ctx.filter = 'hue-rotate(0deg) brightness(1.2) contrast(1.1)';
+      ctx.drawImage(video, -10, 0, w, h);
+      // Cyan shift
+      ctx.globalAlpha = 0.8; ctx.filter = 'hue-rotate(180deg) brightness(1.2) contrast(1.1)';
+      ctx.drawImage(video, 10, 0, w, h);
+      ctx.restore();
+    } else {
+      // Glitch logic
+      const offset = (Math.random() * 20 - 10) * (Math.random() > 0.9 ? 1 : 0);
+      ctx.drawImage(video, offset, 0, w, h);
+      if (Math.random() > 0.95) {
+        ctx.fillStyle = 'rgba(255,0,255,0.2)'; ctx.fillRect(0, Math.random() * h, w, 5);
+      }
+    }
+  },
+
+  // NEW: Shape Helpers
+  drawHeart: (ctx, x, y, size, color) => {
+    ctx.save(); ctx.translate(x, y); ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(-size/2, -size/2, -size, size/3, 0, size);
+    ctx.bezierCurveTo(size, size/3, size/2, -size/2, 0, 0);
+    ctx.fill(); ctx.restore();
+  },
+  drawStar: (ctx, x, y, size, color) => {
+    ctx.save(); ctx.translate(x, y); ctx.fillStyle = color;
+    ctx.beginPath();
+    for (let i = 0; i < 5; i++) {
+      ctx.rotate(Math.PI / 5); ctx.lineTo(0, 0 - size);
+      ctx.rotate(Math.PI / 5); ctx.lineTo(0, 0 - (size * 0.45));
+    }
+    ctx.fill(); ctx.restore();
+  },
+
   // ─── POLAROID ENGINE ────────────────────────────────────────────────────────
   // Draws ONE polaroid card with a GRID of photos inside it.
   // cols/rows: internal grid within the card.
@@ -574,13 +770,29 @@ BASE_MODES.forEach(m => {
   FILTER_CONFIG.push({ id: `kaleido-${s}`, name: `Kaleido ${s}`, cat: 'mirror', method: (px, ctx, w, h) => Effects.kaleidoscope(ctx, w, h, s) });
 });
 
-// B. COLOR SUITE (350+)
-for (let h = 0; h < 360; h += 2) {
+// B. CURATED AURA SUITE (High-Quality Color Moods)
+const AURAS = [
+  { n: 'Aura Rose', h: 0, s: 1.6, c: 1.1 },
+  { n: 'Aura Sunset', h: 35, s: 1.8, c: 1.15 },
+  { n: 'Aura Amber', h: 55, s: 1.5, c: 1.1 },
+  { n: 'Aura Forest', h: 110, s: 1.4, c: 1.1 },
+  { n: 'Aura Emerald', h: 165, s: 1.6, c: 1.1 },
+  { n: 'Aura Sapphire', h: 215, s: 1.7, c: 1.15 },
+  { n: 'Aura Amethyst', h: 280, s: 1.6, c: 1.1 },
+  { n: 'Aura Magenta', h: 320, s: 1.8, c: 1.2 }
+];
+
+AURAS.forEach(a => {
   FILTER_CONFIG.push({
-    id: `hue-${h}`, name: `Aura ${h}°`, cat: 'color',
-    method: (px, ctx, w, hv) => { ctx.save(); ctx.filter = `hue-rotate(${h}deg) saturate(1.5)`; ctx.drawImage(video, 0, 0, w, hv); ctx.restore(); }
+    id: `hue-${a.h}`, name: a.n, cat: 'color',
+    method: (px, ctx, w, h) => { 
+      ctx.save(); 
+      ctx.filter = `hue-rotate(${a.h}deg) saturate(${a.s}) contrast(${a.c}) brightness(1.05)`; 
+      ctx.drawImage(video, 0, 0, w, h); 
+      ctx.restore(); 
+    }
   });
-}
+});
 
 const CINEMATIC = [
   "Tokyo", "Berlin", "Paris", "Bali", "Iceland", "Cyberpunk", "London", "Sahara", "Pacific", "Autumn", "Spring", "Summer", "Winter",
@@ -732,3 +944,93 @@ POLA_LAYOUTS.forEach(lay => {
     });
   });
 });
+
+// L. THEME COLLECTIONS (50+ NEW FILTERS)
+
+// 1. WINTER (Snow)
+for (let i = 1; i <= 10; i++) {
+  FILTER_CONFIG.push({
+    id: `winter-${i}`, name: `Snowy Day ${i}`, cat: 'winter',
+    method: (px, ctx, w, h) => Effects.snow(ctx, w, h, 0.5 + i * 0.2)
+  });
+}
+
+// 2. FIRE (Flame)
+for (let i = 1; i <= 10; i++) {
+  FILTER_CONFIG.push({
+    id: `fire-${i}`, name: `Inferno ${i}`, cat: 'fire',
+    method: (px, ctx, w, h) => Effects.fire(ctx, w, h, 0.5 + i * 0.15)
+  });
+}
+
+// 3. CUTE (Advanced Collection - 30 Filters)
+const CUTE_SUITE = [
+  { n: "Teddy Brown", t: "bear", c: "#cc8e6c" },
+  { n: "Teddy Pink", t: "bear", c: "#ffb7c5" },
+  { n: "Teddy Polar", t: "bear", c: "#eee" },
+  { n: "Panda Cute", t: "panda", c: "#333" },
+  { n: "White Neko", t: "cat", c: "#fff" },
+  { n: "Black Neko", t: "cat", c: "#333" },
+  { n: "Pink Neko", t: "cat", c: "#ffb7c5" },
+  { n: "Calico Neko", t: "cat", c: "#f9ab4d" },
+  { n: "Snow Bunny", t: "bunny", c: "#fff" },
+  { n: "Pink Bunny", t: "bunny", c: "#ffb7c5" },
+  { n: "Grey Bunny", t: "bunny", c: "#aaa" },
+  { n: "Angel Halo", t: "angel", c: "#ffd700" },
+  { n: "Raining Hearts", t: "hearts", c: null },
+  { n: "Heart Aura", t: "hearts", c: null },
+  { n: "Shiny Stars", t: "sparkles", c: null },
+  { n: "Fairy Dust", t: "sparkles", c: null },
+  { n: "Strawberry", t: "strawberry", c: null },
+  { n: "Peach Bloom", t: "strawberry", c: "#ffccaa" },
+  { n: "Soft Dream", t: "pastel", c: null },
+  { n: "Pink Candy", t: "pastel", c: "#ffcce6" },
+  { n: "Lemonade", t: "pastel", c: "#fff9c4" },
+  { n: "Minty Fresh", t: "pastel", c: "#e0f2f1" },
+  { n: "Lavender", t: "pastel", c: "#f3e5f5" },
+  { n: "Cool Sky", t: "pastel", c: "#e3f2fd" },
+  { n: "Marshmallow", t: "pastel", c: "#fce4ec" },
+  { n: "Clover", t: "pastel", c: "#e8f5e9" },
+  { n: "Blush Pink", t: "pastel", c: "#fbe9e7" },
+  { n: "Sunset Cute", t: "pastel", c: "#fff3e0" },
+  { n: "Golden Aura", t: "pastel", c: "#fffde7" },
+  { n: "Kawaii Pro", t: "hearts", c: null }
+];
+
+CUTE_SUITE.forEach((f, i) => {
+  FILTER_CONFIG.push({
+    id: `cute-${i}`, name: f.n, cat: 'cute',
+    method: (px, ctx, w, h) => {
+      if (f.t === 'pastel') {
+        ctx.save();
+        ctx.filter = `contrast(0.9) brightness(1.1) saturate(1.2) sepia(0.05)`;
+        ctx.drawImage(video, 0, 0, w, h);
+        if (f.c) {
+          ctx.globalAlpha = 0.15; ctx.fillStyle = f.c; ctx.fillRect(0, 0, w, h);
+        }
+        ctx.restore();
+      } else {
+        Effects.cuteOver(ctx, w, h, f.t, f.c);
+      }
+    }
+  });
+});
+
+// 4. URBAN (Hello City)
+const URBAN_NAMES = ["Neo Tokyo", "Night City", "Gotham", "Cyberpunk", "Street Life", "Metropolis", "Skyline", "Urban Noir", "Neon Pulse", "City Lights"];
+URBAN_NAMES.forEach((n, i) => {
+  FILTER_CONFIG.push({
+    id: `urban-${i}`, name: n, cat: 'urban',
+    method: (px, ctx, w, h) => Effects.urban(ctx, w, h, i % 2 === 0 ? 'neon' : 'noir')
+  });
+});
+
+// 5. COOL (Boy Version / 3D / Glitch)
+const COOL_NAMES = ["Night Ops", "Glitch Tactical", "3D RedBlue", "Matrix", "Steel", "Cyber Boy", "Technoboy", "Volt", "Alpha", "Phantom"];
+COOL_NAMES.forEach((n, i) => {
+  FILTER_CONFIG.push({
+    id: `cool-${i}`, name: n, cat: 'cool',
+    method: (px, ctx, w, h) => Effects.coolBoy(ctx, w, h, i % 2 === 0 ? '3d' : 'glitch')
+  });
+});
+

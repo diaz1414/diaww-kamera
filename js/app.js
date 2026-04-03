@@ -148,11 +148,11 @@ const App = {
     document.querySelectorAll('.cat-tab').forEach(btn => {
       btn.onclick = () => {
         document.querySelectorAll('.cat-tab').forEach(t => {
-          t.classList.remove('bg-gold-500', 'text-dark-900', 'shadow-lg');
+          t.classList.remove('bg-gold-500', 'text-dark-900', 'shadow-[0_4px_15px_rgba(212,175,55,0.3)]');
           t.style.color = 'var(--grid-tab-text, rgba(255,255,255,0.55))';
           t.style.border = '1px solid var(--grid-border-tab, rgba(255,255,255,0.12))';
         });
-        btn.classList.add('bg-gold-500', 'text-dark-900', 'shadow-lg');
+        btn.classList.add('bg-gold-500', 'text-dark-900', 'shadow-[0_4px_15px_rgba(212,175,55,0.3)]');
         btn.style.color = '';
         btn.style.border = 'none';
         App.currentCategory = btn.dataset.cat;

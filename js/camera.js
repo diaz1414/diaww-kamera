@@ -115,8 +115,9 @@ const Camera = {
     const filter = FILTER_CONFIG.find(f => f.id === filterId);
     if (filter) {
       currentFilter = filter;
-      // Clear buffer for motion effects when switching
+      // Clear buffer & state for motion/particle effects when switching
       Effects.buffer = []; 
+      Effects.state = {};
     }
   },
 
