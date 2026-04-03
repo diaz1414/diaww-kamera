@@ -69,8 +69,9 @@ const Effects = {
   // --- 2. THE HYPER SUITE ---
 
   grid: (ctx, w, h, cols, rows, mirror = false, gap = 4) => {
-    // Fill background with video instead of black
-    ctx.drawImage(video, 0, 0, w, h);
+    // Fill background with black
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, w, h);
 
     const tw = w / cols, th = h / rows;
     const drawW = tw - (gap > 0 ? gap : 0);
@@ -441,8 +442,9 @@ const Effects = {
       Effects.state.w = w;
     }
     
-    // Draw Background Camera
-    ctx.drawImage(video, 0, 0, w, h);
+    // Draw Black Background
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, w, h);
     
     // Draw & Update Particles
     ctx.fillStyle = '#fff';
@@ -464,7 +466,8 @@ const Effects = {
       }));
     }
 
-    ctx.drawImage(video, 0, 0, w, h);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, w, h);
     
     // Heat Haze (Distortion at bottom)
     const time = Date.now() / 200;
