@@ -605,7 +605,11 @@ const App = {
     App.Sound.shutter();
     if (App.settings.flash) {
       const flash = document.getElementById('shutter-flash');
-      gsap.fromTo(flash, { opacity: 1 }, { opacity: 0, duration: 0.5 });
+      // Brightness "Hold" + Longer Fade
+      gsap.fromTo(flash, 
+        { opacity: 1 }, 
+        { opacity: 0, duration: 0.8, delay: 0.15, ease: "power2.out" }
+      );
     }
 
     const dataUrl = Camera.capture();
