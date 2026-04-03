@@ -410,30 +410,35 @@
       </div>
     </div>
 
-    <!-- Paged grid (2x2) -->
-    <div id="grid-items-container" class="flex-1 grid grid-cols-2 grid-rows-2 p-4 md:p-8 gap-4 md:gap-8 overflow-hidden max-w-6xl mx-auto w-full">
-      <!-- Injected dynamically: 4 Live Preview Canvases -->
+    <!-- Scrollable grid wrapper (desktop) -->
+    <div class="flex-1 overflow-y-auto no-scroll md:overflow-y-auto">
+      <!-- Paged grid (2x2) -->
+      <div id="grid-items-container" class="grid grid-cols-2 p-3 md:px-12 md:py-6 gap-4 md:gap-8 lg:gap-10 max-w-5xl mx-auto w-full auto-rows-min justify-items-center">
+        <!-- Injected dynamically: 4 Live Preview Canvases -->
+      </div>
     </div>
 
     <!-- Pagination Footer -->
-    <div id="grid-pagination" class="shrink-0 px-8 py-6 border-t flex items-center justify-between transition-colors duration-500"
+    <div id="grid-pagination" class="shrink-0 px-6 py-5 md:px-8 md:py-6 border-t flex items-center justify-between transition-colors duration-500"
       style="border-color: var(--grid-border, rgba(255,255,255,0.07)); background: var(--grid-header-bg, rgba(8,8,8,0.9)); backdrop-filter: blur(20px);">
       
       <button id="grid-prev" 
-        class="flex items-center gap-2 py-3 px-6 rounded-full bg-white/5 border border-white/10 text-gold-500 font-black uppercase tracking-widest text-[0.65rem] hover:bg-gold-500 hover:text-dark-900 transition-all disabled:opacity-20 disabled:cursor-not-allowed">
-        <i data-lucide="chevron-left" size="18"></i> PREV
+        class="flex items-center gap-1.5 py-3 px-5 md:px-6 rounded-full bg-white/5 border border-white/10 text-gold-500 font-black uppercase tracking-widest text-[0.6rem] md:text-[0.65rem] hover:bg-gold-500 hover:text-dark-900 transition-all disabled:opacity-20 disabled:cursor-not-allowed">
+        <i data-lucide="chevron-left" size="16" class="md:hidden"></i>
+        <i data-lucide="chevron-left" size="18" class="hidden md:block"></i> PREV
       </button>
 
       <div class="flex flex-col items-center">
-        <span id="grid-page-info" class="text-xs font-serif italic text-white/40 tracking-tight">Halaman 1 dari 100</span>
+        <span id="grid-page-info" class="text-[0.65rem] md:text-xs font-serif italic text-white/40 tracking-tight">Halaman 1 dari 100</span>
         <div class="flex gap-1 mt-1.5" id="grid-dots">
           <!-- Dots injected via JS -->
         </div>
       </div>
 
       <button id="grid-next" 
-        class="flex items-center gap-2 py-3 px-6 rounded-full bg-white/5 border border-white/10 text-gold-500 font-black uppercase tracking-widest text-[0.65rem] hover:bg-gold-500 hover:text-dark-900 transition-all">
-        NEXT <i data-lucide="chevron-right" size="18"></i>
+        class="flex items-center gap-1.5 py-3 px-5 md:px-6 rounded-full bg-white/5 border border-white/10 text-gold-500 font-black uppercase tracking-widest text-[0.6rem] md:text-[0.65rem] hover:bg-gold-500 hover:text-dark-900 transition-all">
+        NEXT <i data-lucide="chevron-right" size="16" class="md:hidden"></i>
+        <i data-lucide="chevron-right" size="18" class="hidden md:block"></i>
       </button>
     </div>
   </div>

@@ -253,24 +253,35 @@ const App = {
     pageItems.forEach((f, i) => {
       const isFav = App.favorites.includes(f.id);
       const el = document.createElement('div');
-      el.className = 'group relative rounded-[2.5rem] overflow-hidden cursor-pointer transition-all duration-700 bg-black border border-white/5 hover:border-gold-500/40 shadow-2xl flex flex-col max-w-sm mx-auto w-full';
+      // Tidy card: 4:3 aspect, responsive max-width for desktop, glassmorphism info bar
+      el.className = 'group relative rounded-3xl overflow-hidden cursor-pointer transition-all duration-500 bg-dark-900 border border-white/5 md:border-white/10 hover:border-gold-500/50 hover:shadow-[0_0_50px_rgba(212,175,55,0.2)] md:hover:shadow-[0_0_60px_rgba(212,175,55,0.25)] flex flex-col w-full max-w-sm md:max-w-md lg:max-w-[32rem] mx-auto active:scale-95 transform-gpu';
       el.innerHTML = `
-        <div class="aspect-square relative overflow-hidden bg-black shrink-0">
-          <canvas class="preview-canvas w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"></canvas>
+        <div class="aspect-[4/3] relative overflow-hidden bg-black shrink-0">
+          <canvas class="preview-canvas w-full h-full object-cover transition-all duration-1000 group-hover:scale-105 group-hover:blur-[2px]"></canvas>
           
-          <!-- Minimalist Gradient Overlay -->
-          <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none opacity-60 group-hover:opacity-90 transition-opacity duration-500"></div>
+          <!-- Subtle vignette + Gradient -->
+          <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 pointer-events-none opacity-50 group-hover:opacity-75 transition-opacity duration-700"></div>
           
-          <!-- Bottom Info Overlay -->
-          <div class="absolute bottom-8 left-8 right-8 flex flex-col items-start pointer-events-none">
-             <span class="text-[0.55rem] font-black uppercase tracking-[0.5em] text-gold-500 mb-2 translate-y-3 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">${f.cat}</span>
-             <span class="text-[0.7rem] md:text-xs font-bold text-white uppercase tracking-[0.25em] transition-all duration-500">${f.name}</span>
-          </div>
-
-          <!-- Favorite Button -->
-          <button class="fav-icon-grid absolute top-8 right-8 w-11 h-11 rounded-2xl bg-black/40 backdrop-blur-xl flex items-center justify-center transition-all duration-300 hover:scale-110 ${isFav ? 'text-gold-500' : 'text-white/40'}" data-id="${f.id}">
+          <!-- Favorite Button (Top Right) -->
+          <button class="fav-icon-grid absolute top-5 right-5 w-12 h-12 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 flex items-center justify-center transition-all duration-300 hover:scale-110 hover:bg-gold-500 hover:text-dark-950 ${isFav ? 'text-gold-500' : 'text-white/40'}" data-id="${f.id}">
              <i data-lucide="star" style="width:20px;height:20px;" class="${isFav ? 'fill-gold-500' : ''}"></i>
           </button>
+
+          <!-- Info Bar: Always visible for names, extra details on hover -->
+          <div class="absolute inset-x-0 bottom-0 p-5 md:p-6 flex items-end justify-between transition-all duration-500 z-10 pointer-events-none">
+             <div class="flex flex-col">
+               <span class="text-[0.6rem] font-black uppercase tracking-[0.4em] text-gold-500/90 mb-1.5 opacity-0 group-hover:opacity-100 transition-all duration-700 delay-75 transform -translate-y-1 group-hover:translate-y-0">${f.cat}</span>
+               <span class="text-[0.8rem] md:text-[0.95rem] font-bold text-white uppercase tracking-[0.2em] leading-tight drop-shadow-2xl transition-transform duration-500 group-hover:scale-105 origin-left">${f.name}</span>
+             </div>
+             
+             <!-- Corner Icon indicator -->
+             <div class="w-8 h-8 rounded-full border border-white/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-700 transform scale-50 group-hover:scale-100">
+               <i data-lucide="maximize" size="14" class="text-white/50"></i>
+             </div>
+          </div>
+          
+          <!-- Selection indicator Glow (Invisible until hover) -->
+          <div class="absolute inset-0 border-2 border-gold-500/0 group-hover:border-gold-500/20 rounded-3xl pointer-events-none transition-all duration-500 scale-[0.98] group-hover:scale-100"></div>
         </div>
       `;
 
@@ -313,19 +324,19 @@ const App = {
 
   drawPreviews() {
     if (!App.previewRunning) return;
-    
+
     const source = window.video; // Buffer canvas from camera.js
     if (source && source.width > 0) {
       App.previewItems.forEach(item => {
         const { canvas, method } = item;
         const ctx = canvas.getContext('2d');
         if (canvas.width !== 320) { // Set internal resolution for performance
-           canvas.width = 320;
-           canvas.height = 240;
+          canvas.width = 320;
+          canvas.height = 240;
         }
-        
+
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
+
         // Pass dummy pixels/ctx to the method if it expects them
         // Some effects use pixel manipulation, others use ctx.drawImage
         // Using temporary canvas or just delegating to the effect
@@ -428,7 +439,7 @@ const App = {
     const canvas = document.getElementById('result-canvas');
     const a = document.createElement('a');
     a.href = canvas.toDataURL('image/jpeg', 0.96);
-    a.download = `DIAWW-${Date.now()}.jpg`;
+    a.download = `DIAWW-Kamera-${Date.now()}.jpg`;
     a.click();
   },
 
