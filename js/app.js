@@ -384,7 +384,15 @@ const App = {
 
     try {
       // Actually request camera permission
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'user',
+          width: { ideal: 1024 },
+          height: { ideal: 768 },
+          aspectRatio: { ideal: 4 / 3 }
+        },
+        audio: false
+      });
       // Stop the test stream immediately — Camera.init() will open its own
       stream.getTracks().forEach(t => t.stop());
       // Permission granted!
