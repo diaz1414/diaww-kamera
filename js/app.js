@@ -81,10 +81,7 @@ const App = {
   bindEvents() {
     // Screen Navigation
     const $ = id => document.getElementById(id);
-    $('start-btn').onclick = () => {
-      App.goTo('camera-interface');
-      Camera.init(App.settings.deviceId).then(() => App.loadCameras());
-    };
+    $('start-btn').onclick = () => App.requestCameraPermission();
     $('back-btn').onclick = () => App.goTo('camera-interface');
 
     // Filter Navigation
@@ -378,6 +375,192 @@ const App = {
     }
     localStorage.setItem('diaww_favs', JSON.stringify(App.favorites));
     App.renderFilterGrid();
+  },
+
+  // ─── CAMERA PERMISSION ──────────────────────────────────────────────────────
+  async requestCameraPermission() {
+    // Show permission modal
+    App.showPermissionModal();
+
+    try {
+      // Actually request camera permission
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      // Stop the test stream immediately — Camera.init() will open its own
+      stream.getTracks().forEach(t => t.stop());
+      // Permission granted!
+      App.hidePermissionModal('granted');
+      setTimeout(() => {
+        App.goTo('camera-interface');
+        Camera.init(App.settings.deviceId).then(() => App.loadCameras());
+      }, 600);
+    } catch (err) {
+      // Permission denied or device not found
+      App.hidePermissionModal('denied', err);
+    }
+  },
+
+  showPermissionModal() {
+    // Create modal if not exists
+    if (document.getElementById('perm-modal')) return;
+    const modal = document.createElement('div');
+    modal.id = 'perm-modal';
+    modal.style.cssText = `
+      position: fixed; inset: 0; z-index: 99999;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(8,8,8,0.85); backdrop-filter: blur(20px);
+      opacity: 0; transition: opacity 0.4s ease;
+    `;
+    modal.innerHTML = `
+      <div id="perm-card" style="
+        background: linear-gradient(145deg, #111111, #0d0d0d);
+        border: 1px solid rgba(212,175,55,0.2);
+        border-radius: 28px;
+        padding: 2.5rem 2rem;
+        max-width: 360px;
+        width: 90%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.25rem;
+        text-align: center;
+        box-shadow: 0 40px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(212,175,55,0.05);
+        transform: translateY(24px) scale(0.96);
+        transition: transform 0.5s cubic-bezier(0.22,1,0.36,1), opacity 0.4s ease;
+        opacity: 0;
+        font-family: 'Outfit', sans-serif;
+      ">
+        <!-- Animated camera icon -->
+        <div id="perm-icon-ring" style="
+          width: 80px; height: 80px;
+          border-radius: 50%;
+          background: rgba(212,175,55,0.08);
+          border: 2px solid rgba(212,175,55,0.25);
+          display: flex; align-items: center; justify-content: center;
+          position: relative;
+          animation: perm-pulse 2s ease-in-out infinite;
+        ">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+        </div>
+
+        <!-- Texts -->
+        <div style="display:flex;flex-direction:column;gap:0.5rem;">
+          <h3 style="font-family:'Cormorant Garamond',Georgia,serif; font-style:italic; font-size:1.75rem; color:#D4AF37; line-height:1; margin:0;">Izin Kamera</h3>
+          <p style="font-size:0.8rem; color:rgba(255,255,255,0.45); line-height:1.6; margin:0;">
+            Diaww Kamera butuh akses ke kamera kamu untuk menampilkan video dan mengambil foto dengan filter eksklusif.
+          </p>
+        </div>
+
+        <!-- Status indicator -->
+        <div id="perm-status" style="
+          display: flex; align-items: center; gap: 0.5rem;
+          background: rgba(212,175,55,0.08);
+          border: 1px solid rgba(212,175,55,0.15);
+          border-radius: 100px;
+          padding: 0.5rem 1rem;
+          font-size: 0.65rem;
+          font-weight: 700;
+          letter-spacing: 0.15em;
+          text-transform: uppercase;
+          color: rgba(212,175,55,0.7);
+        ">
+          <span id="perm-dot" style="width:7px;height:7px;border-radius:50%;background:#D4AF37;animation:perm-blink 1s ease-in-out infinite;"></span>
+          <span id="perm-status-text">Menunggu izin browser...</span>
+        </div>
+
+        <!-- Tip -->
+        <p style="font-size:0.68rem; color:rgba(255,255,255,0.2); margin:0; line-height:1.5;">
+          Klik <strong style="color:rgba(255,255,255,0.4);">"Izinkan"</strong> pada dialog browser di atas untuk melanjutkan.
+        </p>
+      </div>
+    `;
+
+    // Inject keyframes
+    if (!document.getElementById('perm-styles')) {
+      const style = document.createElement('style');
+      style.id = 'perm-styles';
+      style.textContent = `
+        @keyframes perm-pulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(212,175,55,0.3); }
+          50% { box-shadow: 0 0 0 14px rgba(212,175,55,0); }
+        }
+        @keyframes perm-blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+        @keyframes perm-spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    document.body.appendChild(modal);
+    // Animate in
+    requestAnimationFrame(() => {
+      modal.style.opacity = '1';
+      const card = document.getElementById('perm-card');
+      if (card) {
+        card.style.transform = 'translateY(0) scale(1)';
+        card.style.opacity = '1';
+      }
+    });
+  },
+
+  hidePermissionModal(result, err) {
+    const modal = document.getElementById('perm-modal');
+    const statusEl = document.getElementById('perm-status-text');
+    const dotEl = document.getElementById('perm-dot');
+    const iconRing = document.getElementById('perm-icon-ring');
+
+    if (result === 'granted') {
+      if (statusEl) statusEl.textContent = 'Izin diberikan! Memuat kamera...';
+      if (dotEl) { dotEl.style.background = '#22c55e'; dotEl.style.animation = 'none'; }
+      if (iconRing) { iconRing.style.borderColor = 'rgba(34,197,94,0.5)'; iconRing.style.background = 'rgba(34,197,94,0.08)'; }
+      setTimeout(() => {
+        if (modal) {
+          modal.style.opacity = '0';
+          const card = document.getElementById('perm-card');
+          if (card) { card.style.transform = 'translateY(-16px) scale(0.96)'; card.style.opacity = '0'; }
+          setTimeout(() => modal.remove(), 400);
+        }
+      }, 500);
+    } else {
+      // Denied
+      if (statusEl) statusEl.textContent = 'Izin ditolak!';
+      if (dotEl) { dotEl.style.background = '#ef4444'; dotEl.style.animation = 'none'; }
+      if (iconRing) { iconRing.style.borderColor = 'rgba(239,68,68,0.5)'; iconRing.style.background = 'rgba(239,68,68,0.08)'; }
+      // Show denied message + retry button
+      const card = document.getElementById('perm-card');
+      if (card) {
+        const msg = document.createElement('div');
+        msg.style.cssText = 'display:flex;flex-direction:column;gap:0.75rem;width:100%;';
+        msg.innerHTML = `
+          <p style="font-size:0.75rem;color:rgba(239,68,68,0.8);line-height:1.5;margin:0;">
+            ${ err && err.name === 'NotFoundError'
+              ? '⚠️ Kamera tidak ditemukan. Pastikan kamera terhubung dan coba lagi.'
+              : '⚠️ Kamu menolak akses kamera. Izinkan kamera di pengaturan browser, lalu coba lagi.' }
+          </p>
+          <button id="perm-retry-btn" style="
+            background: #D4AF37; color: #080808;
+            border: none; border-radius: 50px;
+            padding: 0.75rem 1.5rem;
+            font-family: 'Outfit',sans-serif;
+            font-size: 0.75rem; font-weight: 800;
+            letter-spacing: 0.1em; text-transform: uppercase;
+            cursor: pointer; transition: all 0.2s;
+          ">Coba Lagi</button>
+        `;
+        card.appendChild(msg);
+        document.getElementById('perm-retry-btn').onclick = () => {
+          modal.remove();
+          App.requestCameraPermission();
+        };
+      }
+    }
   },
 
   // ─── CAPTURE ─────────────────────────────────────────────────────────────────
