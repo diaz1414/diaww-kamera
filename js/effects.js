@@ -6,7 +6,7 @@
 const Effects = {
   buffer: [],
   maxBufferSize: 60,
-  
+
   // PERSISTENT POOLS (Memory Stability)
   canvasPool: [],
   offscreen: document.createElement('canvas'),
@@ -14,7 +14,7 @@ const Effects = {
   pData: null,
 
   // --- 1. CORE ENGINE ---
-  
+
   map: (px, ctx, w, h, mapFn) => {
     const out = ctx.createImageData(w, h);
     const d = px.data, od = out.data;
@@ -24,7 +24,7 @@ const Effects = {
         if (sx >= 0 && sx < w && sy >= 0 && sy < h) {
           const tIdx = (y * w + x) * 4;
           const sIdx = (Math.floor(sy) * w + Math.floor(sx)) * 4;
-          od[tIdx] = d[sIdx]; od[tIdx+1] = d[sIdx+1]; od[tIdx+2] = d[sIdx+2]; od[tIdx+3] = d[sIdx+3];
+          od[tIdx] = d[sIdx]; od[tIdx + 1] = d[sIdx + 1]; od[tIdx + 2] = d[sIdx + 2]; od[tIdx + 3] = d[sIdx + 3];
         }
       }
     }
@@ -34,30 +34,30 @@ const Effects = {
   // NEW: Optimized convolution for sharpening, blurring, etc.
   convolve: (px, ctx, w, h, weights) => {
     const side = Math.round(Math.sqrt(weights.length));
-    const halfSide = Math.floor(side/2);
+    const halfSide = Math.floor(side / 2);
     const src = px.data;
     const sw = w, sh = h;
     const output = ctx.createImageData(w, h);
     const dst = output.data;
 
-    for (let y=0; y<h; y++) {
-      for (let x=0; x<w; x++) {
-        const sy = y, sx = x, dstOff = (y*w+x)*4;
-        let r=0, g=0, b=0;
-        for (let cy=0; cy<side; cy++) {
-          for (let cx=0; cx<side; cx++) {
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const sy = y, sx = x, dstOff = (y * w + x) * 4;
+        let r = 0, g = 0, b = 0;
+        for (let cy = 0; cy < side; cy++) {
+          for (let cx = 0; cx < side; cx++) {
             const scy = sy + cy - halfSide;
             const scx = sx + cx - halfSide;
             if (scy >= 0 && scy < sh && scx >= 0 && scx < sw) {
               const srcOff = (scy * sw + scx) * 4;
               const wt = weights[cy * side + cx];
               r += src[srcOff] * wt;
-              g += src[srcOff+1] * wt;
-              b += src[srcOff+2] * wt;
+              g += src[srcOff + 1] * wt;
+              b += src[srcOff + 2] * wt;
             }
           }
         }
-        dst[dstOff] = r; dst[dstOff+1] = g; dst[dstOff+2] = b; dst[dstOff+3] = 255;
+        dst[dstOff] = r; dst[dstOff + 1] = g; dst[dstOff + 2] = b; dst[dstOff + 3] = 255;
       }
     }
     ctx.putImageData(output, 0, 0);
@@ -79,9 +79,9 @@ const Effects = {
     let sw = video.width, sh = video.height;
     let sx = 0, sy = 0;
     if (sw / sh > cellAspect) {
-        sw = sh * cellAspect; sx = (video.width - sw) / 2;
+      sw = sh * cellAspect; sx = (video.width - sw) / 2;
     } else {
-        sh = sw / cellAspect; sy = (video.height - sh) / 2;
+      sh = sw / cellAspect; sy = (video.height - sh) / 2;
     }
 
     for (let r = 0; r < rows; r++) {
@@ -141,16 +141,16 @@ const Effects = {
     ctx.save();
     // DRAW BASE LAYER (Fixed black screen bug)
     ctx.drawImage(video, 0, 0, w, h);
-    
+
     ctx.globalCompositeOperation = 'screen';
     // Draw buffered frames with skipping (Optimized for speed)
     for (let i = 0; i < Effects.buffer.length; i += 2) {
-        const frame = Effects.buffer[i];
-        if (frame) {
-            ctx.globalAlpha = alpha / (i / 2 + 1);
-            ctx.filter = `hue-rotate(${i * 24}deg) saturate(1.8)`;
-            ctx.drawImage(frame, 0, 0, w, h);
-        }
+      const frame = Effects.buffer[i];
+      if (frame) {
+        ctx.globalAlpha = alpha / (i / 2 + 1);
+        ctx.filter = `hue-rotate(${i * 24}deg) saturate(1.8)`;
+        ctx.drawImage(frame, 0, 0, w, h);
+      }
     }
     ctx.restore();
   },
@@ -160,8 +160,8 @@ const Effects = {
     ctx.save();
     ctx.translate(halfW, halfH);
     for (let i = 0; i < slices; i++) {
-        ctx.rotate((Math.PI * 2) / slices);
-        ctx.drawImage(video, -halfW/2, -halfH/2, halfW, halfH);
+      ctx.rotate((Math.PI * 2) / slices);
+      ctx.drawImage(video, -halfW / 2, -halfH / 2, halfW, halfH);
     }
     ctx.restore();
   },
@@ -171,13 +171,13 @@ const Effects = {
       const time = Date.now() / 800;
       const d = px.data, out = oCtx.createImageData(sw, sh), od = out.data;
       for (let y = 0; y < sh; y++) {
-          const yw = y * sw, syB = Math.sin(y / 15 + time) * (10 * strength);
-          for (let x = 0; x < sw; x++) {
-              const sx = (x + Math.cos(x / 15 + time) * (8 * strength) + 0.5) | 0;
-              const sy = (y + syB + 0.5) | 0;
-              const i = (yw + x) << 2, si = (sy * sw + sx) << 2;
-              od[i] = d[si]; od[i+1] = d[si+1]; od[i+2] = d[si+2]; od[i+3] = 255;
-          }
+        const yw = y * sw, syB = Math.sin(y / 15 + time) * (10 * strength);
+        for (let x = 0; x < sw; x++) {
+          const sx = (x + Math.cos(x / 15 + time) * (8 * strength) + 0.5) | 0;
+          const sy = (y + syB + 0.5) | 0;
+          const i = (yw + x) << 2, si = (sy * sw + sx) << 2;
+          od[i] = d[si]; od[i + 1] = d[si + 1]; od[i + 2] = d[si + 2]; od[i + 3] = 255;
+        }
       }
       oCtx.putImageData(out, 0, 0);
     });
@@ -192,21 +192,21 @@ const Effects = {
   updateBuffer: (ctx, w, h, size) => {
     // RECYCLING SYSTEM (No memory leaks)
     if (Effects.canvasPool.length === 0) {
-        for(let i=0; i<60; i++) {
-            const c = document.createElement('canvas');
-            c.width = w; c.height = h;
-            Effects.canvasPool.push(c);
-        }
+      for (let i = 0; i < 60; i++) {
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        Effects.canvasPool.push(c);
+      }
     }
     const t = Effects.canvasPool.shift();
     // AUTO-RESIZE FIX (Prevents 'small box' bug when switching from low-res)
     if (t.width !== w || t.height !== h) { t.width = w; t.height = h; }
-    
+
     t.getContext('2d').drawImage(video, 0, 0, w, h);
     Effects.buffer.push(t);
     if (Effects.buffer.length > size) {
-        const old = Effects.buffer.shift();
-        Effects.canvasPool.push(old);
+      const old = Effects.buffer.shift();
+      Effects.canvasPool.push(old);
     }
   },
 
@@ -214,16 +214,16 @@ const Effects = {
   processLowRes: (ctx, w, h, filterFn) => {
     const sw = w >> 1, sh = h >> 1; // 50% size
     if (!Effects.offCtx) {
-        Effects.offscreen.width = sw; Effects.offscreen.height = sh;
-        Effects.offCtx = Effects.offscreen.getContext('2d', { alpha: false });
+      Effects.offscreen.width = sw; Effects.offscreen.height = sh;
+      Effects.offCtx = Effects.offscreen.getContext('2d', { alpha: false });
     }
     // Step 1: Capture Low-Res
     Effects.offCtx.drawImage(video, 0, 0, sw, sh);
     const px = Effects.offCtx.getImageData(0, 0, sw, sh);
-    
+
     // Step 2: Custom Loop (Already optimized in filterFn)
     filterFn(px, Effects.offCtx, sw, sh);
-    
+
     // Step 3: Fast GPU Upscale
     ctx.drawImage(Effects.offscreen, 0, 0, w, h);
   },
@@ -233,35 +233,39 @@ const Effects = {
     const cx = w / 2, cy = h / 2, radius = Math.min(w, h) / 2;
     const d = px.data, out = ctx.createImageData(w, h), od = out.data;
     for (let y = 0; y < h; y++) {
-        const yw = y * w, dy = y - cy, dy2 = dy * dy;
-        for (let x = 0; x < w; x++) {
-            const dx = x - cx;
-            const dist = Math.sqrt(dx * dx + dy2);
-            const i = (yw + x) << 2;
-            if (dist < radius) {
-                const factor = Math.pow(dist / radius, strength);
-                const sx = (cx + dx * factor + 0.5) | 0, sy = (cy + dy * factor + 0.5) | 0;
-                const si = (sy * w + sx) << 2;
-                od[i] = d[si]; od[i+1] = d[si+1]; od[i+2] = d[si+2]; od[i+3] = d[si+3];
-            } else {
-                const si = (yw + x) << 2;
-                od[i] = d[si]; od[i+1] = d[si+1]; od[i+2] = d[si+2]; od[i+3] = d[si+3];
-            }
+      const yw = y * w, dy = y - cy, dy2 = dy * dy;
+      for (let x = 0; x < w; x++) {
+        const dx = x - cx;
+        const dist = Math.sqrt(dx * dx + dy2);
+        const i = (yw + x) << 2;
+        if (dist < radius) {
+          const factor = Math.pow(dist / radius, strength);
+          const sx = (cx + dx * factor + 0.5) | 0, sy = (cy + dy * factor + 0.5) | 0;
+          const si = (sy * w + sx) << 2;
+          od[i] = d[si]; od[i + 1] = d[si + 1]; od[i + 2] = d[si + 2]; od[i + 3] = d[si + 3];
+        } else {
+          const si = (yw + x) << 2;
+          od[i] = d[si]; od[i + 1] = d[si + 1]; od[i + 2] = d[si + 2]; od[i + 3] = d[si + 3];
         }
+      }
     }
     ctx.putImageData(out, 0, 0);
   },
 
-  // NEW: Fisheye
+  // NEW: Fisheye (fixed division by zero)
   fisheye: (px, ctx, w, h, zoom = 1) => {
-    const cx = w/2, cy = h/2;
+    const cx = w / 2, cy = h / 2;
     Effects.map(px, ctx, w, h, (x, y) => {
       let dx = (x - cx) / cx, dy = (y - cy) / cy;
-      let r = Math.sqrt(dx*dx + dy*dy);
+      let r = Math.sqrt(dx * dx + dy * dy);
       if (r < 1) {
-        let nr = (1 - Math.sqrt(1 - r*r)) / 2 + r / 2;
+        if (r === 0) {
+          // Center pixel stays unchanged
+          return { sx: cx, sy: cy };
+        }
+        let nr = (1 - Math.sqrt(1 - r * r)) / 2 + r / 2;
         nr *= zoom;
-        return { sx: cx + (dx/r) * nr * cx, sy: cy + (dy/r) * nr * cy };
+        return { sx: cx + (dx / r) * nr * cx, sy: cy + (dy / r) * nr * cy };
       }
       return { sx: x, sy: y };
     });
@@ -278,15 +282,15 @@ const Effects = {
   // NEW: Dot Screen (Halftone)
   dotScreen: (px, ctx, w, h, size = 10) => {
     const d = px.data;
-    ctx.fillStyle = '#000'; ctx.fillRect(0,0,w,h);
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
     for (let y = 0; y < h; y += size) {
       for (let x = 0; x < w; x += size) {
         const i = (y * w + x) * 4;
-        const avg = (d[i] + d[i+1] + d[i+2]) / 3;
+        const avg = (d[i] + d[i + 1] + d[i + 2]) / 3;
         const r = (avg / 255) * (size / 2);
         ctx.fillStyle = '#fff';
         ctx.beginPath();
-        ctx.arc(x + size/2, y + size/2, r, 0, Math.PI * 2);
+        ctx.arc(x + size / 2, y + size / 2, r, 0, Math.PI * 2);
         ctx.fill();
       }
     }
@@ -298,11 +302,11 @@ const Effects = {
     const out = ctx.createImageData(w, h);
     const od = out.data;
     for (let i = 0; i < d.length; i += 4) {
-      const r = d[i], g = d[i+1], b = d[i+2];
-      od[i] = r*m[0] + g*m[1] + b*m[2] + m[4]*255;
-      od[i+1] = r*m[5] + g*m[6] + b*m[7] + m[9]*255;
-      od[i+2] = r*m[10] + g*m[11] + b*m[12] + m[14]*255;
-      od[i+3] = d[i+3];
+      const r = d[i], g = d[i + 1], b = d[i + 2];
+      od[i] = r * m[0] + g * m[1] + b * m[2] + m[4] * 255;
+      od[i + 1] = r * m[5] + g * m[6] + b * m[7] + m[9] * 255;
+      od[i + 2] = r * m[10] + g * m[11] + b * m[12] + m[14] * 255;
+      od[i + 3] = d[i + 3];
     }
     ctx.putImageData(out, 0, 0);
   },
@@ -312,7 +316,7 @@ const Effects = {
     const radius = Math.min(w, h) / 2;
     Effects.map(px, ctx, w, h, (x, y) => {
       let dx = x - cx, dy = y - cy;
-      const d = Math.sqrt(dx*dx + dy*dy);
+      const d = Math.sqrt(dx * dx + dy * dy);
       if (d < radius) {
         const a = Math.atan2(dy, dx) + angle * (radius - d) / radius;
         return { sx: cx + d * Math.cos(a), sy: cy + d * Math.sin(a) };
@@ -326,12 +330,12 @@ const Effects = {
     Effects.processLowRes(ctx, w, h, (px, oCtx, sw, sh) => {
       const time = Date.now() / 1000, d = px.data, out = oCtx.createImageData(sw, sh), od = out.data;
       for (let y = 0; y < sh; y++) {
-          const yw = y * sw, syO = Math.sin(y * freq + time) * (strength / 2);
-          for (let x = 0; x < sw; x++) {
-              const sx = (x + syO + 0.5) | 0, sy = (y + Math.cos(x * freq + time) * (strength / 2) + 0.5) | 0;
-              const i = (yw + x) << 2, si = (sy * sw + sx) << 2;
-              od[i] = d[si]; od[i+1] = d[si+1]; od[i+2] = d[si+2]; od[i+3] = 255;
-          }
+        const yw = y * sw, syO = Math.sin(y * freq + time) * (strength / 2);
+        for (let x = 0; x < sw; x++) {
+          const sx = (x + syO + 0.5) | 0, sy = (y + Math.cos(x * freq + time) * (strength / 2) + 0.5) | 0;
+          const i = (yw + x) << 2, si = (sy * sw + sx) << 2;
+          od[i] = d[si]; od[i + 1] = d[si + 1]; od[i + 2] = d[si + 2]; od[i + 3] = 255;
+        }
       }
       oCtx.putImageData(out, 0, 0);
     });
@@ -340,21 +344,21 @@ const Effects = {
   // NEW: Spherical Bubble Refraction
   bubble: (px, ctx, w, h, size = 0.4, intensity = 0.15) => {
     Effects.processLowRes(ctx, w, h, (px, oCtx, sw, sh) => {
-      const cx = sw/2, cy = sh/2, radius = Math.min(sw, sh) * size;
-      const rInv = 1/radius, hPI = Math.PI / 2, d = px.data, out = oCtx.createImageData(sw, sh), od = out.data;
+      const cx = sw / 2, cy = sh / 2, radius = Math.min(sw, sh) * size;
+      const rInv = 1 / radius, hPI = Math.PI / 2, d = px.data, out = oCtx.createImageData(sw, sh), od = out.data;
       for (let y = 0; y < sh; y++) {
-          const yw = y * sw, dy = y - cy, dy2 = dy * dy;
-          for (let x = 0; x < sw; x++) {
-              const dx = x - cx, dist = Math.sqrt(dx * dx + dy2), i = (yw + x) << 2;
-              if (dist < radius) {
-                  const f = 1 + (Math.sin(dist * rInv * hPI) * intensity);
-                  const sx = (cx + dx * f + 0.5) | 0, sy = (cy + dy * f + 0.5) | 0;
-                  const si = (sy * sw + sx) << 2;
-                  od[i] = d[si]; od[i+1] = d[si+1]; od[i+2] = d[si+2]; od[i+3] = 255;
-              } else {
-                  od[i] = d[i]; od[i+1] = d[i+1]; od[i+2] = d[i+2]; od[i+3] = 255;
-              }
+        const yw = y * sw, dy = y - cy, dy2 = dy * dy;
+        for (let x = 0; x < sw; x++) {
+          const dx = x - cx, dist = Math.sqrt(dx * dx + dy2), i = (yw + x) << 2;
+          if (dist < radius) {
+            const f = 1 + (Math.sin(dist * rInv * hPI) * intensity);
+            const sx = (cx + dx * f + 0.5) | 0, sy = (cy + dy * f + 0.5) | 0;
+            const si = (sy * sw + sx) << 2;
+            od[i] = d[si]; od[i + 1] = d[si + 1]; od[i + 2] = d[si + 2]; od[i + 3] = 255;
+          } else {
+            od[i] = d[i]; od[i + 1] = d[i + 1]; od[i + 2] = d[i + 2]; od[i + 3] = 255;
           }
+        }
       }
       oCtx.putImageData(out, 0, 0);
     });
@@ -365,20 +369,20 @@ const Effects = {
 
 // --- THE 500+ HYPER CONFIG ---
 const FILTER_CONFIG = [
-  { id: 'original', name: 'Original', cat: 'all', method: (px, ctx) => ctx.drawImage(video, 0,0) }
+  { id: 'original', name: 'Original', cat: 'all', method: (px, ctx) => ctx.drawImage(video, 0, 0) }
 ];
 
 // A. CATEGORIZED BASE
 const BASE_MODES = [
-  { id: 'mirror-h',   name: 'Symmetry H',    cat: 'mirror', method: (px, ctx, w, h) => Effects.symmetry(ctx, w, h, 'horizontal') },
-  { id: 'mirror-v',   name: 'Symmetry V',    cat: 'mirror', method: (px, ctx, w, h) => Effects.symmetry(ctx, w, h, 'vertical') },
-  { id: 'mirror-q',   name: 'Symmetry Quad', cat: 'mirror', method: (px, ctx, w, h) => Effects.symmetry(ctx, w, h, 'quad') },
-  { id: 'grid-2',     name: 'Split Screen',  cat: 'mirror', params: [2, 1] },
-  { id: 'grid-v',     name: 'Top Bottom',    cat: 'mirror', params: [1, 2] },
-  { id: 'grid-4',     name: 'Quad Cam',      cat: 'mirror', params: [2, 2] },
-  { id: 'grid-36',    name: 'Filmstrip',     cat: 'mirror', params: [6, 6] },
-  { id: 'grid-16',    name: '16-Bits Pro',   cat: 'mirror', params: [4, 4] },
-  { id: 'grid-100',   name: 'INCEPTION',     cat: 'mirror', params: [10, 10] }
+  { id: 'mirror-h', name: 'Symmetry H', cat: 'mirror', method: (px, ctx, w, h) => Effects.symmetry(ctx, w, h, 'horizontal') },
+  { id: 'mirror-v', name: 'Symmetry V', cat: 'mirror', method: (px, ctx, w, h) => Effects.symmetry(ctx, w, h, 'vertical') },
+  { id: 'mirror-q', name: 'Symmetry Quad', cat: 'mirror', method: (px, ctx, w, h) => Effects.symmetry(ctx, w, h, 'quad') },
+  { id: 'grid-2', name: 'Split Screen', cat: 'mirror', params: [2, 1] },
+  { id: 'grid-v', name: 'Top Bottom', cat: 'mirror', params: [1, 2] },
+  { id: 'grid-4', name: 'Quad Cam', cat: 'mirror', params: [2, 2] },
+  { id: 'grid-36', name: 'Filmstrip', cat: 'mirror', params: [6, 6] },
+  { id: 'grid-16', name: '16-Bits Pro', cat: 'mirror', params: [4, 4] },
+  { id: 'grid-100', name: 'INCEPTION', cat: 'mirror', params: [10, 10] }
 ];
 
 BASE_MODES.forEach(m => {
@@ -386,43 +390,47 @@ BASE_MODES.forEach(m => {
     FILTER_CONFIG.push({ id: m.id, name: m.name, cat: m.cat, method: m.method });
   } else {
     // Standard grids are now boxy and non-mirrored like Webcam Toy
-    FILTER_CONFIG.push({ 
-        id: m.id, 
-        name: m.name, 
-        cat: m.cat, 
-        method: (px, ctx, w, h) => Effects.grid(ctx, w, h, m.params[0], m.params[1], false, 6) 
+    FILTER_CONFIG.push({
+      id: m.id,
+      name: m.name,
+      cat: m.cat,
+      method: (px, ctx, w, h) => Effects.grid(ctx, w, h, m.params[0], m.params[1], false, 6)
     });
   }
 });
 
 [4, 6, 8, 10, 12, 14, 16, 20, 24, 32].forEach(s => {
-    FILTER_CONFIG.push({ id: `kaleido-${s}`, name: `Kaleido ${s}`, cat: 'mirror', method: (px, ctx, w, h) => Effects.kaleidoscope(ctx, w, h, s) });
+  FILTER_CONFIG.push({ id: `kaleido-${s}`, name: `Kaleido ${s}`, cat: 'mirror', method: (px, ctx, w, h) => Effects.kaleidoscope(ctx, w, h, s) });
 });
 
 // B. COLOR SUITE (350+)
 for (let h = 0; h < 360; h += 2) {
-  FILTER_CONFIG.push({ id: `hue-${h}`, name: `Aura ${h}°`, cat: 'color', 
-    method: (px, ctx, w, hv) => { ctx.save(); ctx.filter = `hue-rotate(${h}deg) saturate(1.5)`; ctx.drawImage(video,0,0,w,hv); ctx.restore(); }
+  FILTER_CONFIG.push({
+    id: `hue-${h}`, name: `Aura ${h}°`, cat: 'color',
+    method: (px, ctx, w, hv) => { ctx.save(); ctx.filter = `hue-rotate(${h}deg) saturate(1.5)`; ctx.drawImage(video, 0, 0, w, hv); ctx.restore(); }
   });
 }
 
 const CINEMATIC = [
-  "Tokyo", "Berlin", "Paris", "Bali", "Iceland", "Cyberpunk", "London", "Sahara", "Pacific", "Autumn", "Spring", "Summer", "Winter", 
-  "Vaporwave", "Synthwave", "Kodak", "Fuji", "VHS", "Retro", "Noir", "Golden", "Rose", "Teal", "Sepia", "Vintage", "Classic", 
+  "Tokyo", "Berlin", "Paris", "Bali", "Iceland", "Cyberpunk", "London", "Sahara", "Pacific", "Autumn", "Spring", "Summer", "Winter",
+  "Vaporwave", "Synthwave", "Kodak", "Fuji", "VHS", "Retro", "Noir", "Golden", "Rose", "Teal", "Sepia", "Vintage", "Classic",
   "Hyper", "Dream", "Mars", "Jupiter", "Neon", "Plastic", "Metallic", "Glass", "Oil", "Water", "Sky", "Fire", "Earth", "Space",
   "Shadow", "Crystal", "Ruby", "Emerald", "Sapphire", "Amber", "Cosmos", "Galaxy", "Nova", "Stellar"
 ];
 
 CINEMATIC.forEach((name, i) => {
-    FILTER_CONFIG.push({ id: `lut-${i}a`, name: `${name} A`, cat: 'color', 
-      method: (px, ctx, w, hv) => { ctx.save(); ctx.filter = `sepia(${0.03*i}) hue-rotate(${i*8}deg) saturate(1.8)`; ctx.drawImage(video,0,0,w,hv); ctx.restore(); }
-    });
-    FILTER_CONFIG.push({ id: `lut-${i}b`, name: `${name} B`, cat: 'color', 
-      method: (px, ctx, w, hv) => { ctx.save(); ctx.filter = `contrast(${1.1+i*0.015}) brightness(${0.9+i*0.005}) saturate(${1+i*0.03})`; ctx.drawImage(video,0,0,w,hv); ctx.restore(); }
-    });
-    FILTER_CONFIG.push({ id: `lut-${i}c`, name: `${name} C`, cat: 'color', 
-      method: (px, ctx, w, hv) => { ctx.save(); ctx.filter = `invert(0.1) hue-rotate(${i*12}deg) contrast(1.4)`; ctx.drawImage(video,0,0,w,hv); ctx.restore(); }
-    });
+  FILTER_CONFIG.push({
+    id: `lut-${i}a`, name: `${name} A`, cat: 'color',
+    method: (px, ctx, w, hv) => { ctx.save(); ctx.filter = `sepia(${0.03 * i}) hue-rotate(${i * 8}deg) saturate(1.8)`; ctx.drawImage(video, 0, 0, w, hv); ctx.restore(); }
+  });
+  FILTER_CONFIG.push({
+    id: `lut-${i}b`, name: `${name} B`, cat: 'color',
+    method: (px, ctx, w, hv) => { ctx.save(); ctx.filter = `contrast(${1.1 + i * 0.015}) brightness(${0.9 + i * 0.005}) saturate(${1 + i * 0.03})`; ctx.drawImage(video, 0, 0, w, hv); ctx.restore(); }
+  });
+  FILTER_CONFIG.push({
+    id: `lut-${i}c`, name: `${name} C`, cat: 'color',
+    method: (px, ctx, w, hv) => { ctx.save(); ctx.filter = `invert(0.1) hue-rotate(${i * 12}deg) contrast(1.4)`; ctx.drawImage(video, 0, 0, w, hv); ctx.restore(); }
+  });
 });
 
 // C. DISTORTION SUITE (Consolidated)
@@ -431,15 +439,16 @@ FILTER_CONFIG.push({ id: `pinch-pro`, name: `Pinch`, cat: 'distort', method: (px
 FILTER_CONFIG.push({ id: `punch-pro`, name: `Punch`, cat: 'distort', method: (px, ctx, w, h) => Effects.pinch(px, ctx, w, h, 1.8) });
 FILTER_CONFIG.push({ id: `fisheye-pro`, name: `Fisheye`, cat: 'distort', method: (px, ctx, w, h) => Effects.fisheye(px, ctx, w, h, 1.2) });
 
-FILTER_CONFIG.push({ id: `bulge-ani`, name: `Liquid Warp`, cat: 'distort', 
+FILTER_CONFIG.push({
+  id: `bulge-ani`, name: `Liquid Warp`, cat: 'distort',
   method: (px, ctx, w, h) => {
-      const time = Date.now() / 1000;
-      Effects.map(px, ctx, w, h, (x, y) => {
-          const dx = (x - w/2)/(w/2), dy = (y - h/2)/(h/2);
-          const dist = Math.sqrt(dx*dx + dy*dy);
-          const factor = 1 + dist * (0.4 + Math.sin(time)*0.15);
-          return { sx: w/2 + (dx * factor) * (w/2), sy: h/2 + (dy * factor) * (h/2) };
-      });
+    const time = Date.now() / 1000;
+    Effects.map(px, ctx, w, h, (x, y) => {
+      const dx = (x - w / 2) / (w / 2), dy = (y - h / 2) / (h / 2);
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const factor = 1 + dist * (0.4 + Math.sin(time) * 0.15);
+      return { sx: w / 2 + (dx * factor) * (w / 2), sy: h / 2 + (dy * factor) * (h / 2) };
+    });
   }
 });
 
@@ -493,27 +502,27 @@ FILTER_CONFIG.push({ id: `bubble-pop`, name: `Pop Bubble`, cat: 'distort', metho
 // I. SWEET COLLECTION (Consolidated to 1 per name)
 const SWEET_NAMES = ["Sakura", "Peach", "Candy", "Mint", "Bloom", "Sugar", "Honey", "Kawaii", "Dreamy", "Pastel", "Lush", "Velvet", "Glow", "Sparkle", "Sweet", "Cookie", "Berry", "Fluff", "Cloud", "Sunny"];
 SWEET_NAMES.forEach((name, i) => {
-    const h = i * 18 + 15;
-    FILTER_CONFIG.push({ 
-      id: `sweet-${i}-pro`, 
-      name: name, 
-      cat: 'sweet', 
-      method: (px, ctx, w, hv) => { 
-        ctx.save(); 
-        ctx.filter = `hue-rotate(${h}deg) saturate(1.5) brightness(1.08) contrast(1.05)`; 
-        ctx.drawImage(video,0,0,w,hv); 
-        ctx.restore(); 
-      } 
-    });
+  const h = i * 18 + 15;
+  FILTER_CONFIG.push({
+    id: `sweet-${i}-pro`,
+    name: name,
+    cat: 'sweet',
+    method: (px, ctx, w, hv) => {
+      ctx.save();
+      ctx.filter = `hue-rotate(${h}deg) saturate(1.5) brightness(1.08) contrast(1.05)`;
+      ctx.drawImage(video, 0, 0, w, hv);
+      ctx.restore();
+    }
+  });
 });
 
 // J. VINTAGE COLLECTION (NEW PRO ANALOG)
 const VINTAGE = [
   { id: 'vin-polaroid', name: 'Polaroid Pro', cat: 'vintage', f: 'contrast(1.1) brightness(1.1) sepia(0.3) saturate(0.8) hue-rotate(-10deg)' },
-  { id: 'vin-1970',     name: '1970s Analog', cat: 'vintage', f: 'sepia(0.2) hue-rotate(20deg) saturate(1.4) contrast(0.9) brightness(1.1)' },
-  { id: 'vin-kodak',    name: 'Kodak Gold',   cat: 'vintage', f: 'contrast(1.2) saturate(1.5) sepia(0.1) hue-rotate(-5deg)' },
-  { id: 'vin-bw-grain', name: 'Grainy Noir',  cat: 'vintage', f: 'grayscale(1) contrast(1.8) brightness(0.9)' },
-  { id: 'vin-denim',    name: 'Faded Denim',  cat: 'vintage', f: 'saturate(0.5) hue-rotate(180deg) brightness(1.1) contrast(1.1) sepia(0.2)' }
+  { id: 'vin-1970', name: '1970s Analog', cat: 'vintage', f: 'sepia(0.2) hue-rotate(20deg) saturate(1.4) contrast(0.9) brightness(1.1)' },
+  { id: 'vin-kodak', name: 'Kodak Gold', cat: 'vintage', f: 'contrast(1.2) saturate(1.5) sepia(0.1) hue-rotate(-5deg)' },
+  { id: 'vin-bw-grain', name: 'Grainy Noir', cat: 'vintage', f: 'grayscale(1) contrast(1.8) brightness(0.9)' },
+  { id: 'vin-denim', name: 'Faded Denim', cat: 'vintage', f: 'saturate(0.5) hue-rotate(180deg) brightness(1.1) contrast(1.1) sepia(0.2)' }
 ];
 
 VINTAGE.forEach(v => {
