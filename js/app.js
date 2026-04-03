@@ -16,6 +16,10 @@ const App = {
     "square": false,
     "deviceId": ""
   }`),
+  gridPage: 0,
+  itemsPerPage: 4,
+  previewRunning: false,
+  previewItems: [],
 
   // ─── INIT ────────────────────────────────────────────────────────────────────
   init() {
@@ -76,12 +80,12 @@ const App = {
   // ─── EVENTS ──────────────────────────────────────────────────────────────────
   bindEvents() {
     // Screen Navigation
-    const $  = id => document.getElementById(id);
-    $('start-btn').onclick   = () => {
+    const $ = id => document.getElementById(id);
+    $('start-btn').onclick = () => {
       App.goTo('camera-interface');
       Camera.init(App.settings.deviceId).then(() => App.loadCameras());
     };
-    $('back-btn').onclick    = () => App.goTo('camera-interface');
+    $('back-btn').onclick = () => App.goTo('camera-interface');
 
     // Filter Navigation
     document.querySelector('.prev-filter').onclick = () => App.shiftFilter(-1);
@@ -90,12 +94,27 @@ const App = {
 
     // Grid
     $('grid-toggle').onclick = () => { App.openGrid(); };
-    $('close-grid').onclick  = () => App.closeGrid();
+    $('close-grid').onclick = () => App.closeGrid();
 
     // Search
     $('filter-search').oninput = e => {
       App.searchQuery = e.target.value.toLowerCase();
+      App.gridPage = 0; // Reset on search
       App.renderFilterGrid();
+    };
+
+    $('grid-prev').onclick = () => {
+      if (App.gridPage > 0) {
+        App.gridPage--;
+        App.renderFilterGrid();
+      }
+    };
+    $('grid-next').onclick = () => {
+      const filtered = App.getFilteredList();
+      if ((App.gridPage + 1) * App.itemsPerPage < filtered.length) {
+        App.gridPage++;
+        App.renderFilterGrid();
+      }
     };
 
     // Capture
@@ -140,6 +159,7 @@ const App = {
         btn.style.color = '';
         btn.style.border = 'none';
         App.currentCategory = btn.dataset.cat;
+        App.gridPage = 0; // Reset on category change
         App.renderFilterGrid();
       };
     });
@@ -172,24 +192,17 @@ const App = {
     const overlay = document.getElementById('filter-grid-overlay');
     overlay.classList.add('hidden');
     overlay.style.display = 'none';
+    App.stopPreviewLoop();
   },
 
-  renderFilterGrid() {
-    const container = document.getElementById('grid-items-container');
-    const searchInput = document.getElementById('filter-search');
-    if (!container) return;
-
+  getFilteredList() {
     let list = [...FILTER_CONFIG];
-
-    // Search
     if (App.searchQuery) {
       list = list.filter(f =>
         f.name.toLowerCase().includes(App.searchQuery) ||
         f.id.toLowerCase().includes(App.searchQuery)
       );
     }
-
-    // Category
     const cat = App.currentCategory;
     if (cat === 'fav') {
       list = list.filter(f => App.favorites.includes(f.id));
@@ -198,83 +211,129 @@ const App = {
     } else if (cat !== 'all') {
       list = list.filter(f => f.cat === cat);
     }
+    return list;
+  },
 
-    // Update count label
-    const label = document.getElementById('filter-count-label');
-    if (label) label.textContent = `${list.length} FILTER — TAILWIND v4`;
+  renderFilterGrid() {
+    const container = document.getElementById('grid-items-container');
+    if (!container) return;
 
-    // Render
-    const frag = document.createDocumentFragment();
-    list.forEach((f, i) => {
+    const list = App.getFilteredList();
+    const totalPages = Math.ceil(list.length / App.itemsPerPage);
+    const pageItems = list.slice(App.gridPage * App.itemsPerPage, (App.gridPage + 1) * App.itemsPerPage);
+
+    // Update pagination UI
+    const prevBtn = document.getElementById('grid-prev');
+    const nextBtn = document.getElementById('grid-next');
+    const info = document.getElementById('grid-page-info');
+    const dotsContainer = document.getElementById('grid-dots');
+
+    if (prevBtn) prevBtn.disabled = App.gridPage === 0;
+    if (nextBtn) nextBtn.disabled = (App.gridPage + 1) >= totalPages;
+    if (info) info.textContent = `Halaman ${App.gridPage + 1} dari ${totalPages || 1}`;
+
+    // Update Dots
+    if (dotsContainer) {
+      dotsContainer.innerHTML = '';
+      const maxDots = 5;
+      const start = Math.max(0, Math.min(App.gridPage - 2, totalPages - maxDots));
+      const end = Math.min(totalPages, start + maxDots);
+      for (let i = start; i < end; i++) {
+        const dot = document.createElement('div');
+        dot.className = `w-1.5 h-1.5 rounded-full transition-all duration-300 ${i === App.gridPage ? 'bg-gold-500 w-4' : 'bg-white/20'}`;
+        dotsContainer.appendChild(dot);
+      }
+    }
+
+    // Render 4 items
+    App.stopPreviewLoop();
+    container.innerHTML = '';
+    App.previewItems = [];
+
+    pageItems.forEach((f, i) => {
       const isFav = App.favorites.includes(f.id);
       const el = document.createElement('div');
-      el.style.animationDelay = `${i * 0.01}s`;
-
-      // Compute CSS filter for preview thumbnail
-      let cssFilter = 'none';
-      if (f.id.includes('hue-')) {
-        const deg = f.id.split('-')[1] || '0';
-        cssFilter = `hue-rotate(${deg}deg) saturate(2)`;
-      } else if (f.id.includes('noir')) {
-        cssFilter = 'grayscale(1) contrast(1.4)';
-      } else if (f.id.includes('cyber')) {
-        cssFilter = 'hue-rotate(186deg) saturate(2.5)';
-      } else if (f.id.includes('neon')) {
-        cssFilter = 'hue-rotate(270deg) saturate(3)';
-      } else if (f.id.includes('lut-')) {
-        const idx = parseInt(f.id.split('-')[1]) || 0;
-        cssFilter = `sepia(0.4) hue-rotate(${idx * 14}deg) saturate(1.6)`;
-      }
-
-      const cardBg = App.isDark ? '#1a1a1a' : '#ffffff';
-      const cardBorder = App.isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(0,0,0,0.08)';
-      el.className = 'group relative rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_12px_40px_rgba(212,175,55,0.25)] fade-up';
-      el.style.aspectRatio = '1/1.15';
-      el.style.background = cardBg;
-      el.style.border = cardBorder;
+      el.className = 'group relative rounded-3xl overflow-hidden cursor-pointer transition-all duration-500 bg-white/5 border border-white/10 hover:border-gold-500 shadow-2xl flex flex-col';
       el.innerHTML = `
-        <img src="https://images.unsplash.com/photo-1542281286-9e0a16bb7366?auto=format&fit=crop&q=80&w=280&h=280"
-             style="filter:${cssFilter};width:100%;height:75%;object-fit:cover;display:block;transition:transform 0.6s;"
-             loading="eager">
-        <div style="position:absolute;inset:0;background:linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 55%);pointer-events:none;"></div>
-        <button class="fav-icon" data-id="${f.id}" title="Favorit"
-          style="position:absolute;top:8px;right:8px;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,0.45);backdrop-filter:blur(4px);border:none;color:${isFav ? '#D4AF37' : '#fff'};cursor:pointer;opacity:${isFav ? '1' : '0'};transition:opacity 0.2s;display:flex;align-items:center;justify-content:center;">
-          <i data-lucide="star" style="width:14px;height:14px;${isFav ? 'fill:#D4AF37;' : ''}"></i>
-        </button>
-        <div style="position:absolute;bottom:0;left:0;right:0;padding:8px 10px;text-align:center;">
-          <span style="font-size:0.6rem;font-weight:900;letter-spacing:0.15em;text-transform:uppercase;color:#fff;">${f.name}</span>
+        <div class="flex-1 relative overflow-hidden bg-black">
+          <canvas class="preview-canvas w-full h-full object-cover"></canvas>
+          <div class="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent pointer-events-none"></div>
+          
+          <!-- Favorite Button -->
+          <button class="fav-icon-grid absolute top-4 right-4 w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center transition-all duration-300 hover:scale-110 ${isFav ? 'text-gold-500' : 'text-white'}" data-id="${f.id}">
+             <i data-lucide="star" style="width:20px;height:20px;" class="${isFav ? 'fill-gold-500' : ''}"></i>
+          </button>
+        </div>
+
+        <div class="p-5 md:p-8 flex items-center justify-between">
+           <div class="flex flex-col">
+              <span class="text-xs uppercase tracking-[0.3em] font-black text-gold-500">${f.name}</span>
+              <span class="text-[0.6rem] text-white/30 uppercase tracking-widest mt-1">${f.cat} EFFECT</span>
+           </div>
+           <i data-lucide="arrow-right-circle" class="text-white/20 group-hover:text-gold-500 group-hover:translate-x-1 transition-all"></i>
         </div>
       `;
 
-      // Hover reveal fav btn
-      el.addEventListener('mouseenter', () => {
-        const btn = el.querySelector('.fav-icon');
-        if (btn) btn.style.opacity = '1';
-        const img = el.querySelector('img');
-        if (img) img.style.transform = 'scale(1.08)';
-      });
-      el.addEventListener('mouseleave', () => {
-        const btn = el.querySelector('.fav-icon');
-        if (btn && !App.favorites.includes(f.id)) btn.style.opacity = '0';
-        const img = el.querySelector('img');
-        if (img) img.style.transform = 'scale(1)';
-      });
+      const canvas = el.querySelector('canvas');
+      App.previewItems.push({ canvas, method: f.method, id: f.id });
 
       el.onclick = e => {
-        if (e.target.closest('.fav-icon')) {
-          App.toggleFav(f.id);
+        if (e.target.closest('.fav-icon-grid')) {
+          App.toggleFavGrid(f.id);
         } else {
           App.activateFilter(f);
           App.closeGrid();
         }
       };
-
-      frag.appendChild(el);
+      container.appendChild(el);
     });
 
-    container.innerHTML = '';
-    container.appendChild(frag);
     lucide.createIcons();
+    App.startPreviewLoop();
+  },
+
+  toggleFavGrid(id) {
+    if (App.favorites.includes(id)) {
+      App.favorites = App.favorites.filter(x => x !== id);
+    } else {
+      App.favorites.push(id);
+    }
+    localStorage.setItem('diaww_favs', JSON.stringify(App.favorites));
+    App.renderFilterGrid();
+  },
+
+  startPreviewLoop() {
+    App.previewRunning = true;
+    App.drawPreviews();
+  },
+
+  stopPreviewLoop() {
+    App.previewRunning = false;
+  },
+
+  drawPreviews() {
+    if (!App.previewRunning) return;
+    
+    const source = window.video; // Buffer canvas from camera.js
+    if (source && source.width > 0) {
+      App.previewItems.forEach(item => {
+        const { canvas, method } = item;
+        const ctx = canvas.getContext('2d');
+        if (canvas.width !== 320) { // Set internal resolution for performance
+           canvas.width = 320;
+           canvas.height = 240;
+        }
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Pass dummy pixels/ctx to the method if it expects them
+        // Some effects use pixel manipulation, others use ctx.drawImage
+        // Using temporary canvas or just delegating to the effect
+        method(null, ctx, canvas.width, canvas.height);
+      });
+    }
+
+    requestAnimationFrame(App.drawPreviews);
   },
 
   // ─── FILTER CONTROL ──────────────────────────────────────────────────────────
@@ -392,7 +451,7 @@ const App = {
         gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
         osc.start();
         osc.stop(this.ctx.currentTime + 0.1);
-      } catch (e) {}
+      } catch (e) { }
     },
     shutter() {
       try {
@@ -417,7 +476,7 @@ const App = {
         gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
         noise.start();
-      } catch (e) {}
+      } catch (e) { }
     }
   },
 
@@ -440,10 +499,10 @@ const App = {
 
   applySettingsUI() {
     const s = App.settings;
-    if (document.getElementById('set-mirror'))    document.getElementById('set-mirror').checked = s.mirror;
+    if (document.getElementById('set-mirror')) document.getElementById('set-mirror').checked = s.mirror;
     if (document.getElementById('set-countdown')) document.getElementById('set-countdown').checked = s.countdown;
-    if (document.getElementById('set-flash'))     document.getElementById('set-flash').checked = s.flash;
-    if (document.getElementById('set-square'))    document.getElementById('set-square').checked = s.square;
+    if (document.getElementById('set-flash')) document.getElementById('set-flash').checked = s.flash;
+    if (document.getElementById('set-square')) document.getElementById('set-square').checked = s.square;
   },
 
   async loadCameras() {
@@ -483,7 +542,7 @@ const App = {
       videoDevices.forEach((device, index) => {
         const label = device.label || `Camera ${index + 1}`;
         const isActive = (App.settings.deviceId === device.deviceId) || (index === 0 && !App.settings.deviceId);
-        
+
         if (isActive) {
           activeLabel = label;
           App.settings.deviceId = device.deviceId; // Lock it in
@@ -495,7 +554,7 @@ const App = {
           <span class="truncate">${label}</span>
           <i data-lucide="check" style="width:12px;height:12px" class="${isActive ? 'opacity-100' : 'opacity-0'} group-hover:opacity-100 transition-opacity"></i>
         `;
-        
+
         item.onclick = (e) => {
           e.stopPropagation();
           activeName.textContent = label;
@@ -507,7 +566,7 @@ const App = {
 
         list.appendChild(item);
       });
-      
+
       activeName.textContent = activeLabel;
       lucide.createIcons();
     });

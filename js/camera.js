@@ -3,7 +3,7 @@
  * Handles stream lifecycle and high-FPS rendering loop.
  */
 
-let video = document.createElement('video');
+let streamVideo = document.createElement('video');
 let canvas = document.getElementById('camera-canvas');
 let ctx = canvas.getContext('2d', { willReadFrequently: true });
 let currentFilter = FILTER_CONFIG[0]; // Default: Original
@@ -30,10 +30,10 @@ const Camera = {
       };
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      video.srcObject = stream;
+      streamVideo.srcObject = stream;
       return new Promise((resolve) => {
-        video.onloadedmetadata = () => {
-          video.play();
+        streamVideo.onloadedmetadata = () => {
+          streamVideo.play();
           const resW = 1024, resH = isSquare ? 1024 : 768;
           canvas.width = resW; canvas.height = resH;
           bufferCanvas.width = resW; bufferCanvas.height = resH;
@@ -59,7 +59,7 @@ const Camera = {
     if (!isStreaming) return;
 
     // 1. Smart Center-Crop from raw stream to buffer
-    const vW = video.videoWidth, vH = video.videoHeight;
+    const vW = streamVideo.videoWidth, vH = streamVideo.videoHeight;
     if (vW && vH) {
       const targetAspect = bufferCanvas.width / bufferCanvas.height;
       let sx=0, sy=0, sW=vW, sH=vH;
@@ -68,7 +68,7 @@ const Camera = {
       } else {
         sH = vW / targetAspect; sy = (vH - sH) / 2;
       }
-      bufferCtx.drawImage(video, sx, sy, sW, sH, 0, 0, bufferCanvas.width, bufferCanvas.height);
+      bufferCtx.drawImage(streamVideo, sx, sy, sW, sH, 0, 0, bufferCanvas.width, bufferCanvas.height);
     }
 
     // 2. Prepare Display
@@ -80,13 +80,21 @@ const Camera = {
       ctx.scale(-1, 1);
     }
 
-    // 3. Draw Buffer to Screen
-    ctx.drawImage(bufferCanvas, 0, 0);
-    
-    // 4. Apply Current Filter
-    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    if (currentFilter && currentFilter.method && currentFilter.id !== 'original') {
+    // 3. Apply Current Filter
+    if (currentFilter && currentFilter.method) {
+      // PRO TIP: Most filters handle their own drawing to use ctx.filter or grids.
+      // We only capture pixels if it's a pixel-level distortion.
+      const isPixelDistortion = currentFilter.cat === 'distort' && !currentFilter.id.includes('pixel') && !currentFilter.id.includes('underwater');
+      let pixels = null;
+      
+      if (isPixelDistortion) {
+          ctx.drawImage(bufferCanvas, 0, 0);
+          pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      }
+      
       currentFilter.method(pixels, ctx, canvas.width, canvas.height);
+    } else {
+      ctx.drawImage(bufferCanvas, 0, 0);
     }
 
     ctx.restore();
@@ -97,8 +105,8 @@ const Camera = {
   stop: () => {
     isStreaming = false;
     cancelAnimationFrame(animationFrameId);
-    if (video.srcObject) {
-      video.srcObject.getTracks().forEach(track => track.stop());
+    if (streamVideo.srcObject) {
+      streamVideo.srcObject.getTracks().forEach(track => track.stop());
     }
   },
 

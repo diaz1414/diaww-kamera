@@ -65,14 +65,74 @@ const Effects = {
 
   // --- 2. THE HYPER SUITE ---
 
-  grid: (ctx, w, h, cols, rows) => {
+  grid: (ctx, w, h, cols, rows, mirror = false, gap = 4) => {
+    // 1. CLEAR TO BLACK background for the borders (boxy look)
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, w, h);
+
     const tw = w / cols, th = h / rows;
+    const drawW = tw - (gap > 0 ? gap : 0);
+    const drawH = th - (gap > 0 ? gap : 0);
+    const cellAspect = drawW / drawH;
+
+    // 2. SMART CROP: Calculate source rect to maintain aspect ratio
+    let sw = video.width, sh = video.height;
+    let sx = 0, sy = 0;
+    if (sw / sh > cellAspect) {
+        sw = sh * cellAspect; sx = (video.width - sw) / 2;
+    } else {
+        sh = sw / cellAspect; sy = (video.height - sh) / 2;
+    }
+
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
-        // Source whole 1024x768 buffer, draw into specific tile
-        ctx.drawImage(video, 0, 0, video.width, video.height, c * tw, r * th, tw, th);
+        ctx.save();
+        ctx.translate(c * tw, r * th);
+        if (mirror && (c % 2 === 1)) {
+          ctx.translate(tw, 0);
+          ctx.scale(-1, 1);
+        }
+        if (mirror && (r % 2 === 1)) {
+          ctx.translate(0, th);
+          ctx.scale(1, -1);
+        }
+        // Draw with the gap as an offset to center the "box"
+        const offset = gap / 2;
+        ctx.drawImage(video, sx, sy, sw, sh, offset, offset, drawW, drawH);
+        ctx.restore();
       }
     }
+  },
+
+  symmetry: (ctx, w, h, type = 'horizontal') => {
+    const vw = video.width, vh = video.height;
+    ctx.save();
+    if (type === 'horizontal') {
+      const sw = vw / 2;
+      // Draw inner-half mirrored to fill the frame neatly
+      ctx.drawImage(video, 0, 0, sw, vh, 0, 0, w / 2, h);
+      ctx.translate(w, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, sw, vh, 0, 0, w / 2, h);
+    } else if (type === 'vertical') {
+      const sh = vh / 2;
+      ctx.drawImage(video, 0, 0, vw, sh, 0, 0, w, h / 2);
+      ctx.translate(0, h);
+      ctx.scale(1, -1);
+      ctx.drawImage(video, 0, 0, vw, sh, 0, 0, w, h / 2);
+    } else if (type === 'quad') {
+      const sw = vw / 2, sh = vh / 2;
+      const qw = w / 2, qh = h / 2;
+      // TL
+      ctx.drawImage(video, 0, 0, sw, sh, 0, 0, qw, qh);
+      // TR
+      ctx.save(); ctx.translate(w, 0); ctx.scale(-1, 1); ctx.drawImage(video, 0, 0, sw, sh, 0, 0, qw, qh); ctx.restore();
+      // BL
+      ctx.save(); ctx.translate(0, h); ctx.scale(1, -1); ctx.drawImage(video, 0, 0, sw, sh, 0, 0, qw, qh); ctx.restore();
+      // BR
+      ctx.save(); ctx.translate(w, h); ctx.scale(-1, -1); ctx.drawImage(video, 0, 0, sw, sh, 0, 0, qw, qh); ctx.restore();
+    }
+    ctx.restore();
   },
 
   // NEW: Rainbow Ghost Engine (Chromatic Trails)
@@ -310,16 +370,29 @@ const FILTER_CONFIG = [
 
 // A. CATEGORIZED BASE
 const BASE_MODES = [
-  { id: 'grid-2',     name: 'Double Take',   cat: 'mirror', params: [2, 1] },
+  { id: 'mirror-h',   name: 'Symmetry H',    cat: 'mirror', method: (px, ctx, w, h) => Effects.symmetry(ctx, w, h, 'horizontal') },
+  { id: 'mirror-v',   name: 'Symmetry V',    cat: 'mirror', method: (px, ctx, w, h) => Effects.symmetry(ctx, w, h, 'vertical') },
+  { id: 'mirror-q',   name: 'Symmetry Quad', cat: 'mirror', method: (px, ctx, w, h) => Effects.symmetry(ctx, w, h, 'quad') },
+  { id: 'grid-2',     name: 'Split Screen',  cat: 'mirror', params: [2, 1] },
   { id: 'grid-v',     name: 'Top Bottom',    cat: 'mirror', params: [1, 2] },
   { id: 'grid-4',     name: 'Quad Cam',      cat: 'mirror', params: [2, 2] },
-  { id: 'grid-9',     name: 'Film Strip',    cat: 'mirror', params: [3, 3] },
+  { id: 'grid-36',    name: 'Filmstrip',     cat: 'mirror', params: [6, 6] },
   { id: 'grid-16',    name: '16-Bits Pro',   cat: 'mirror', params: [4, 4] },
-  { id: 'grid-100',   name: 'INCEPTION',     cat: 'mirror', params: [6, 6] }
+  { id: 'grid-100',   name: 'INCEPTION',     cat: 'mirror', params: [10, 10] }
 ];
 
 BASE_MODES.forEach(m => {
-  FILTER_CONFIG.push({ id: m.id, name: m.name, cat: m.cat, method: (px, ctx, w, h) => Effects.grid(ctx, w, h, ...m.params) });
+  if (m.method) {
+    FILTER_CONFIG.push({ id: m.id, name: m.name, cat: m.cat, method: m.method });
+  } else {
+    // Standard grids are now boxy and non-mirrored like Webcam Toy
+    FILTER_CONFIG.push({ 
+        id: m.id, 
+        name: m.name, 
+        cat: m.cat, 
+        method: (px, ctx, w, h) => Effects.grid(ctx, w, h, m.params[0], m.params[1], false, 6) 
+    });
+  }
 });
 
 [4, 6, 8, 10, 12, 14, 16, 20, 24, 32].forEach(s => {
@@ -352,35 +425,29 @@ CINEMATIC.forEach((name, i) => {
     });
 });
 
-// C. DISTORTION SUITE (200+)
-for (let s = 1; s <= 20; s++) {
-  FILTER_CONFIG.push({ id: `twirl-${s}`, name: `Swirl ${s}`, cat: 'distort', method: (px, ctx, w, h) => Effects.twirl(px, ctx, w, h, s * 0.3) });
-  FILTER_CONFIG.push({ id: `pinch-${s}`, name: `Pinch ${s}`, cat: 'distort', method: (px, ctx, w, h) => Effects.pinch(px, ctx, w, h, 0.05 * s) });
-  FILTER_CONFIG.push({ id: `punch-${s}`, name: `Punch ${s}`, cat: 'distort', method: (px, ctx, w, h) => Effects.pinch(px, ctx, w, h, 1 + s * 0.1) });
-  FILTER_CONFIG.push({ id: `fisheye-${s}`, name: `Fisheye ${s}`, cat: 'distort', method: (px, ctx, w, h) => Effects.fisheye(px, ctx, w, h, 0.3 + s * 0.08) });
-}
+// C. DISTORTION SUITE (Consolidated)
+FILTER_CONFIG.push({ id: `swirl-pro`, name: `Swirl`, cat: 'distort', method: (px, ctx, w, h) => Effects.twirl(px, ctx, w, h, 2.5) });
+FILTER_CONFIG.push({ id: `pinch-pro`, name: `Pinch`, cat: 'distort', method: (px, ctx, w, h) => Effects.pinch(px, ctx, w, h, 0.45) });
+FILTER_CONFIG.push({ id: `punch-pro`, name: `Punch`, cat: 'distort', method: (px, ctx, w, h) => Effects.pinch(px, ctx, w, h, 1.8) });
+FILTER_CONFIG.push({ id: `fisheye-pro`, name: `Fisheye`, cat: 'distort', method: (px, ctx, w, h) => Effects.fisheye(px, ctx, w, h, 1.2) });
 
-for (let s = -0.9; s <= 0.9; s += 0.05) {
-  if (Math.abs(s) < 0.05) continue;
-  FILTER_CONFIG.push({ id: `bulge-${s.toFixed(2)}`, name: `Warp ${s.toFixed(2)}`, cat: 'distort', 
-    method: (px, ctx, w, h) => {
-        const time = Date.now() / 1000;
-        Effects.map(px, ctx, w, h, (x, y) => {
-            const dx = (x - w/2)/(w/2), dy = (y - h/2)/(h/2);
-            const dist = Math.sqrt(dx*dx + dy*dy);
-            const factor = 1 + dist * (s + Math.sin(time)*0.1);
-            return { sx: w/2 + (dx * factor) * (w/2), sy: h/2 + (dy * factor) * (h/2) };
-        });
-    }
-  });
-}
-
-
-// D. ARTISTIC & PIXEL (50+)
-[2, 4, 8, 12, 16, 24, 32, 48, 64].forEach(s => {
-  FILTER_CONFIG.push({ id: `pixel-${s}`, name: `Pixel ${s}`, cat: 'distort', method: (px, ctx, w, h) => Effects.pixelate(ctx, w, h, s) });
-  FILTER_CONFIG.push({ id: `dot-${s}`, name: `Dots ${s}`, cat: 'distort', method: (px, ctx, w, h) => Effects.dotScreen(px, ctx, w, h, s) });
+FILTER_CONFIG.push({ id: `bulge-ani`, name: `Liquid Warp`, cat: 'distort', 
+  method: (px, ctx, w, h) => {
+      const time = Date.now() / 1000;
+      Effects.map(px, ctx, w, h, (x, y) => {
+          const dx = (x - w/2)/(w/2), dy = (y - h/2)/(h/2);
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          const factor = 1 + dist * (0.4 + Math.sin(time)*0.15);
+          return { sx: w/2 + (dx * factor) * (w/2), sy: h/2 + (dy * factor) * (h/2) };
+      });
+  }
 });
+
+
+// D. ARTISTIC & PIXEL (Consolidated)
+FILTER_CONFIG.push({ id: `pixel-art`, name: `Pixel Art`, cat: 'distort', method: (px, ctx, w, h) => Effects.pixelate(ctx, w, h, 12) });
+FILTER_CONFIG.push({ id: `pixel-8bit`, name: `8-Bit Retro`, cat: 'distort', method: (px, ctx, w, h) => Effects.pixelate(ctx, w, h, 28) });
+FILTER_CONFIG.push({ id: `dot-ink`, name: `Ink Dots`, cat: 'distort', method: (px, ctx, w, h) => Effects.dotScreen(px, ctx, w, h, 14) });
 
 FILTER_CONFIG.push({ id: 'underwater-pro', name: 'Coral Reef', cat: 'distort', method: (px, ctx, w, h) => Effects.underwater(px, ctx, w, h, 1.2) });
 FILTER_CONFIG.push({ id: 'ghost-pro', name: 'RGB GHOST', cat: 'motion', method: (px, ctx, w, h) => Effects.rainbowGhost(ctx, w, h, 12, 0.3) });
@@ -398,7 +465,7 @@ const TOP_FILTERS = [
 ];
 
 // E. COMBO SUITE (Disabling combos for heavy grid modes for performance)
-BASE_MODES.filter(g => g.id !== 'grid-16' && g.id !== 'grid-100').forEach(grid => {
+BASE_MODES.filter(g => g.params && g.id !== 'grid-16' && g.id !== 'grid-100').forEach(grid => {
   TOP_FILTERS.forEach(filter => {
     FILTER_CONFIG.push({
       id: `combo-${grid.id}-${filter.n.toLowerCase()}`,
@@ -419,37 +486,23 @@ BASE_MODES.filter(g => g.id !== 'grid-16' && g.id !== 'grid-100').forEach(grid =
   });
 });
 
-// G. LIQUID SUITE (50 NEW WAVES)
-for (let s = 1; s <= 50; s++) {
-  const strength = 5 + (s * 0.5);
-  const freq = 0.02 + (s * 0.002);
-  FILTER_CONFIG.push({ id: `wave-${s}`, name: `Wave ${s}`, cat: 'distort', method: (px, ctx, w, h) => Effects.liquid(px, ctx, w, h, strength, freq) });
-}
+// G. LIQUID SUITE (Consolidated)
+FILTER_CONFIG.push({ id: `wave-deep`, name: `Deep Wave`, cat: 'distort', method: (px, ctx, w, h) => Effects.liquid(px, ctx, w, h, 25, 0.04) });
+FILTER_CONFIG.push({ id: `bubble-pop`, name: `Pop Bubble`, cat: 'distort', method: (px, ctx, w, h) => Effects.bubble(px, ctx, w, h, 0.6, 0.2) });
 
-// H. BUBBLE SUITE (50 NEW SPHERICAL)
-for (let s = 1; s <= 50; s++) {
-  const size = 0.2 + (s * 0.015);
-  const intensity = 0.05 + (s * 0.005);
-  FILTER_CONFIG.push({ id: `bubble-${s}`, name: `Bubble ${s}`, cat: 'distort', method: (px, ctx, w, h) => Effects.bubble(px, ctx, w, h, size, intensity) });
-}
-
-// I. SWEET COLLECTION (100 NEW CUTE FILTERS)
+// I. SWEET COLLECTION (Consolidated to 1 per name)
 const SWEET_NAMES = ["Sakura", "Peach", "Candy", "Mint", "Bloom", "Sugar", "Honey", "Kawaii", "Dreamy", "Pastel", "Lush", "Velvet", "Glow", "Sparkle", "Sweet", "Cookie", "Berry", "Fluff", "Cloud", "Sunny"];
 SWEET_NAMES.forEach((name, i) => {
-  for (let variant = 1; variant <= 5; variant++) {
-      const h = i * 18 + (variant * 5);
-      const sat = 1.2 + (variant * 0.1);
-      const b = 1 + (variant * 0.03);
-      FILTER_CONFIG.push({ 
-        id: `sweet-${i}-${variant}`, 
-        name: `${name} ${variant}`, 
-        cat: 'sweet', 
-        method: (px, ctx, w, hv) => { 
-          ctx.save(); 
-          ctx.filter = `hue-rotate(${h}deg) saturate(${sat}) brightness(${b}) contrast(1.1) sepia(0.1)`; 
-          ctx.drawImage(video,0,0,w,hv); 
-          ctx.restore(); 
-        }
-      });
-  }
+    const h = i * 18 + 15;
+    FILTER_CONFIG.push({ 
+      id: `sweet-${i}-pro`, 
+      name: name, 
+      cat: 'sweet', 
+      method: (px, ctx, w, hv) => { 
+        ctx.save(); 
+        ctx.filter = `hue-rotate(${h}deg) saturate(1.5) brightness(1.08) contrast(1.05)`; 
+        ctx.drawImage(video,0,0,w,hv); 
+        ctx.restore(); 
+      } 
+    });
 });
