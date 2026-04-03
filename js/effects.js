@@ -135,23 +135,77 @@ const Effects = {
     ctx.restore();
   },
 
-  // NEW: Rainbow Ghost Engine (Chromatic Trails)
+  // RGB GHOST ENGINE (Chromatic Aberration Trails)
   rainbowGhost: (ctx, w, h, frames = 10, alpha = 0.4) => {
     Effects.updateBuffer(ctx, w, h, frames);
-    ctx.save();
-    // DRAW BASE LAYER (Fixed black screen bug)
-    ctx.drawImage(video, 0, 0, w, h);
 
+    // --- 1. CLEAR: black background for ghost effect ---
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, w, h);
+
+    // --- 2. GHOST TRAILS from old buffered frames ---
+    ctx.save();
     ctx.globalCompositeOperation = 'screen';
-    // Draw buffered frames with skipping (Optimized for speed)
-    for (let i = 0; i < Effects.buffer.length; i += 2) {
+    const step = Math.max(1, Math.floor(Effects.buffer.length / 5));
+    for (let i = 0; i < Effects.buffer.length; i += step) {
       const frame = Effects.buffer[i];
-      if (frame) {
-        ctx.globalAlpha = alpha / (i / 2 + 1);
-        ctx.filter = `hue-rotate(${i * 24}deg) saturate(1.8)`;
-        ctx.drawImage(frame, 0, 0, w, h);
+      if (!frame) continue;
+      const t = i / Effects.buffer.length; // 0..1, oldest=0
+      const fade = alpha * (1 - t) * 0.5;
+      // Cycle ghost color: red → magenta → blue → cyan → green
+      const hue = t * 300;
+      ctx.globalAlpha = fade;
+      ctx.filter = `hue-rotate(${hue}deg) saturate(2.5) brightness(1.2)`;
+      ctx.drawImage(frame, 0, 0, w, h);
+    }
+    ctx.restore();
+
+    // --- 3. CHROMATIC ABERRATION on current live frame ---
+    // We composite R, G, B channels with pixel offsets
+    const shift = Math.max(4, w * 0.012) | 0; // ~1.2% of width
+
+    // Use a temp offscreen to isolate channels
+    const tmp = document.createElement('canvas');
+    tmp.width = w; tmp.height = h;
+    const tCtx = tmp.getContext('2d');
+    tCtx.drawImage(video, 0, 0, w, h);
+    const src = tCtx.getImageData(0, 0, w, h);
+    const s = src.data;
+
+    const out = ctx.createImageData(w, h);
+    const o = out.data;
+
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const idx = (y * w + x) * 4;
+
+        // Red channel: shift LEFT
+        const rx = Math.max(0, x - shift);
+        const ri = (y * w + rx) * 4;
+
+        // Green channel: no shift (center)
+        const gi = idx;
+
+        // Blue channel: shift RIGHT
+        const bx = Math.min(w - 1, x + shift);
+        const bi = (y * w + bx) * 4;
+
+        o[idx]     = s[ri];       // R from left
+        o[idx + 1] = s[gi + 1];  // G from center
+        o[idx + 2] = s[bi + 2];  // B from right
+        o[idx + 3] = 255;
       }
     }
+
+    // Composite the chromatic frame on top of ghost trails
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = 0.92;
+
+    const chromaCanvas = document.createElement('canvas');
+    chromaCanvas.width = w; chromaCanvas.height = h;
+    chromaCanvas.getContext('2d').putImageData(out, 0, 0);
+    ctx.drawImage(chromaCanvas, 0, 0);
     ctx.restore();
   },
 
@@ -273,9 +327,14 @@ const Effects = {
 
   // NEW: Pixelate
   pixelate: (ctx, w, h, size = 10) => {
-    ctx.drawImage(video, 0, 0, w / size, h / size);
+    // Step 1: Draw video at 1/size resolution into a tiny temp canvas
+    const tmp = document.createElement('canvas');
+    tmp.width = (w / size) | 0;
+    tmp.height = (h / size) | 0;
+    tmp.getContext('2d').drawImage(video, 0, 0, tmp.width, tmp.height);
+    // Step 2: Scale back up pixelated (no smoothing = blocky pixels)
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(canvas, 0, 0, w / size, h / size, 0, 0, w, h);
+    ctx.drawImage(tmp, 0, 0, tmp.width, tmp.height, 0, 0, w, h);
     ctx.imageSmoothingEnabled = true;
   },
 
@@ -362,6 +421,118 @@ const Effects = {
       }
       oCtx.putImageData(out, 0, 0);
     });
+  },
+
+  // ─── POLAROID ENGINE ────────────────────────────────────────────────────────
+  // Draws ONE polaroid card with a GRID of photos inside it.
+  // cols/rows: internal grid within the card.
+  // filterStyle: CSS filter for the photos.
+  polaroid: (ctx, w, h, cols = 1, rows = 1, filterStyle = null) => {
+    // 1. Paper background — warm linen texture
+    const grad = ctx.createLinearGradient(0, 0, w, h);
+    grad.addColorStop(0, '#e2dfd5');
+    grad.addColorStop(0.5, '#d6d2c4');
+    grad.addColorStop(1, '#cdc8b8');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+
+    // Subtle texture dots
+    ctx.save();
+    ctx.globalAlpha = 0.05;
+    for(let i=0; i<150; i++) {
+      ctx.beginPath();
+      ctx.arc(Math.random()*w, Math.random()*h, Math.random()*2, 0, Math.PI*2);
+      ctx.fillStyle = '#000';
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // 2. Calculate card size (Keep it centered and large)
+    const cardW = Math.min(w, h) * 0.72;
+    const cardH = cardW * 1.25;
+    const cx = w/2, cy = h/2;
+
+    // Margins
+    const m = cardW * 0.06;     // side/top margin
+    const mb = cardH * 0.22;    // bottom margin for writing
+    const photoW = cardW - (m * 2);
+    const photoH = cardH - m - mb;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    // Subtle tilt for realism
+    ctx.rotate(-0.02);
+
+    // Card Shadow
+    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+    ctx.shadowBlur = cardW * 0.05;
+    ctx.shadowOffsetX = cardW * 0.02;
+    ctx.shadowOffsetY = cardH * 0.02;
+
+    // White Card Body
+    ctx.fillStyle = '#fdfdfb';
+    ctx.beginPath();
+    ctx.roundRect(-cardW/2, -cardH/2, cardW, cardH, cardW * 0.015);
+    ctx.fill();
+
+    // Reset shadow for inner parts
+    ctx.shadowColor = 'transparent';
+
+    // 3. Draw Photo Grid
+    ctx.save();
+    // Clip to photo area
+    ctx.beginPath();
+    ctx.rect(-cardW/2 + m, -cardH/2 + m, photoW, photoH);
+    ctx.clip();
+
+    // Black background for the photo gaps
+    ctx.fillStyle = '#111';
+    ctx.fillRect(-cardW/2 + m, -cardH/2 + m, photoW, photoH);
+
+    const gap = 4;
+    const cellW = (photoW - (cols - 1) * gap) / cols;
+    const cellH = (photoH - (rows - 1) * gap) / rows;
+    const cellAspect = cellW / cellH;
+
+    // Smart Crop from raw video
+    let sw = video.width, sh = video.height;
+    let sx = 0, sy = 0;
+    if (sw / sh > cellAspect) {
+      sw = sh * cellAspect; sx = (video.width - sw) / 2;
+    } else {
+      sh = sw / cellAspect; sy = (video.height - sh) / 2;
+    }
+
+    if (filterStyle) ctx.filter = filterStyle;
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const dx = -cardW/2 + m + c * (cellW + gap);
+        const dy = -cardH/2 + m + r * (cellH + gap);
+        ctx.drawImage(video, sx, sy, sw, sh, dx, dy, cellW, cellH);
+      }
+    }
+    ctx.restore();
+
+    // Inner shadow on photo
+    ctx.save();
+    ctx.globalCompositeOperation = 'multiply';
+    const iGrad = ctx.createLinearGradient(0, -cardH/2 + m, 0, -cardH/2 + m + photoH/4);
+    iGrad.addColorStop(0, 'rgba(0,0,0,0.15)');
+    iGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = iGrad;
+    ctx.fillRect(-cardW/2 + m, -cardH/2 + m, photoW, photoH);
+    ctx.restore();
+
+    // Writing line
+    ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-cardW * 0.35, cardH/2 - mb * 0.45);
+    ctx.lineTo(cardW * 0.35, cardH/2 - mb * 0.45);
+    ctx.stroke();
+
+    ctx.restore();
   }
 };
 
@@ -459,9 +630,9 @@ FILTER_CONFIG.push({ id: `pixel-8bit`, name: `8-Bit Retro`, cat: 'distort', meth
 FILTER_CONFIG.push({ id: `dot-ink`, name: `Ink Dots`, cat: 'distort', method: (px, ctx, w, h) => Effects.dotScreen(px, ctx, w, h, 14) });
 
 FILTER_CONFIG.push({ id: 'underwater-pro', name: 'Coral Reef', cat: 'distort', method: (px, ctx, w, h) => Effects.underwater(px, ctx, w, h, 1.2) });
-FILTER_CONFIG.push({ id: 'ghost-pro', name: 'RGB GHOST', cat: 'motion', method: (px, ctx, w, h) => Effects.rainbowGhost(ctx, w, h, 12, 0.3) });
-FILTER_CONFIG.push({ id: 'hyper-ghost', name: 'HYPER GHOST', cat: 'motion', method: (px, ctx, w, h) => Effects.rainbowGhost(ctx, w, h, 20, 0.5) });
-FILTER_CONFIG.push({ id: 'acid-ghost', name: 'ACID TRIP', cat: 'motion', method: (px, ctx, w, h) => Effects.rainbowGhost(ctx, w, h, 10, 1.1) });
+FILTER_CONFIG.push({ id: 'ghost-pro', name: 'RGB GHOST', cat: 'motion', method: (px, ctx, w, h) => Effects.rainbowGhost(ctx, w, h, 12, 0.35) });
+FILTER_CONFIG.push({ id: 'hyper-ghost', name: 'HYPER GHOST', cat: 'motion', method: (px, ctx, w, h) => Effects.rainbowGhost(ctx, w, h, 22, 0.6) });
+FILTER_CONFIG.push({ id: 'acid-ghost', name: 'ACID TRIP', cat: 'motion', method: (px, ctx, w, h) => Effects.rainbowGhost(ctx, w, h, 30, 0.9) });
 
 // E. COMBO SUITE
 const TOP_FILTERS = [
@@ -529,5 +700,35 @@ VINTAGE.forEach(v => {
   FILTER_CONFIG.push({
     id: v.id, name: v.name, cat: v.cat,
     method: (px, ctx, w, h) => { ctx.save(); ctx.filter = v.f; ctx.drawImage(video, 0, 0, w, h); ctx.restore(); }
+  });
+});
+
+// K. POLAROID LUXE COLLECTION
+const POLA_STLES = [
+  { n: 'Classic', f: null },
+  { n: 'B&W', f: 'grayscale(1) contrast(1.2) brightness(1.05)' },
+  { n: 'Sepia', f: 'sepia(0.7) contrast(1.1) brightness(0.95)' },
+  { n: 'Retro', f: 'hue-rotate(-15deg) saturate(1.3) contrast(0.9)' },
+  { n: 'Faded', f: 'opacity(0.85) sepia(0.15) brightness(1.05)' }
+];
+
+const POLA_LAYOUTS = [
+  { n: '1x', c: 1, r: 1 },
+  { n: '2v', c: 1, r: 2 },
+  { n: '2h', c: 2, r: 1 },
+  { n: '3v', c: 1, r: 3 },
+  { n: '4x', c: 2, r: 2 },
+  { n: '6x', c: 2, r: 3 },
+  { n: '9x', c: 3, r: 3 }
+];
+
+POLA_LAYOUTS.forEach(lay => {
+  POLA_STLES.forEach(style => {
+    FILTER_CONFIG.push({
+      id: `pola-${lay.n}-${style.n.toLowerCase()}`,
+      name: `Pola ${lay.n} ${style.n}`,
+      cat: 'polaroid',
+      method: (px, ctx, w, h) => Effects.polaroid(ctx, w, h, lay.c, lay.r, style.f)
+    });
   });
 });
