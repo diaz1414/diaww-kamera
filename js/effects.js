@@ -506,3 +506,19 @@ SWEET_NAMES.forEach((name, i) => {
       } 
     });
 });
+
+// J. VINTAGE COLLECTION (NEW PRO ANALOG)
+const VINTAGE = [
+  { id: 'vin-polaroid', name: 'Polaroid Pro', cat: 'vintage', f: 'contrast(1.1) brightness(1.1) sepia(0.3) saturate(0.8) hue-rotate(-10deg)' },
+  { id: 'vin-1970',     name: '1970s Analog', cat: 'vintage', f: 'sepia(0.2) hue-rotate(20deg) saturate(1.4) contrast(0.9) brightness(1.1)' },
+  { id: 'vin-kodak',    name: 'Kodak Gold',   cat: 'vintage', f: 'contrast(1.2) saturate(1.5) sepia(0.1) hue-rotate(-5deg)' },
+  { id: 'vin-bw-grain', name: 'Grainy Noir',  cat: 'vintage', f: 'grayscale(1) contrast(1.8) brightness(0.9)' },
+  { id: 'vin-denim',    name: 'Faded Denim',  cat: 'vintage', f: 'saturate(0.5) hue-rotate(180deg) brightness(1.1) contrast(1.1) sepia(0.2)' }
+];
+
+VINTAGE.forEach(v => {
+  FILTER_CONFIG.push({
+    id: v.id, name: v.name, cat: v.cat,
+    method: (px, ctx, w, h) => { ctx.save(); ctx.filter = v.f; ctx.drawImage(video, 0, 0, w, h); ctx.restore(); }
+  });
+});

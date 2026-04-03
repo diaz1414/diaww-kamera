@@ -253,24 +253,24 @@ const App = {
     pageItems.forEach((f, i) => {
       const isFav = App.favorites.includes(f.id);
       const el = document.createElement('div');
-      el.className = 'group relative rounded-3xl overflow-hidden cursor-pointer transition-all duration-500 bg-white/5 border border-white/10 hover:border-gold-500 shadow-2xl flex flex-col';
+      el.className = 'group relative rounded-[2.5rem] overflow-hidden cursor-pointer transition-all duration-700 bg-black border border-white/5 hover:border-gold-500/40 shadow-2xl flex flex-col max-w-sm mx-auto w-full';
       el.innerHTML = `
-        <div class="flex-1 relative overflow-hidden bg-black">
-          <canvas class="preview-canvas w-full h-full object-cover"></canvas>
-          <div class="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent pointer-events-none"></div>
+        <div class="aspect-square relative overflow-hidden bg-black shrink-0">
+          <canvas class="preview-canvas w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"></canvas>
           
+          <!-- Minimalist Gradient Overlay -->
+          <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none opacity-60 group-hover:opacity-90 transition-opacity duration-500"></div>
+          
+          <!-- Bottom Info Overlay -->
+          <div class="absolute bottom-8 left-8 right-8 flex flex-col items-start pointer-events-none">
+             <span class="text-[0.55rem] font-black uppercase tracking-[0.5em] text-gold-500 mb-2 translate-y-3 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">${f.cat}</span>
+             <span class="text-[0.7rem] md:text-xs font-bold text-white uppercase tracking-[0.25em] transition-all duration-500">${f.name}</span>
+          </div>
+
           <!-- Favorite Button -->
-          <button class="fav-icon-grid absolute top-4 right-4 w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center transition-all duration-300 hover:scale-110 ${isFav ? 'text-gold-500' : 'text-white'}" data-id="${f.id}">
+          <button class="fav-icon-grid absolute top-8 right-8 w-11 h-11 rounded-2xl bg-black/40 backdrop-blur-xl flex items-center justify-center transition-all duration-300 hover:scale-110 ${isFav ? 'text-gold-500' : 'text-white/40'}" data-id="${f.id}">
              <i data-lucide="star" style="width:20px;height:20px;" class="${isFav ? 'fill-gold-500' : ''}"></i>
           </button>
-        </div>
-
-        <div class="p-5 md:p-8 flex items-center justify-between">
-           <div class="flex flex-col">
-              <span class="text-xs uppercase tracking-[0.3em] font-black text-gold-500">${f.name}</span>
-              <span class="text-[0.6rem] text-white/30 uppercase tracking-widest mt-1">${f.cat} EFFECT</span>
-           </div>
-           <i data-lucide="arrow-right-circle" class="text-white/20 group-hover:text-gold-500 group-hover:translate-x-1 transition-all"></i>
         </div>
       `;
 
